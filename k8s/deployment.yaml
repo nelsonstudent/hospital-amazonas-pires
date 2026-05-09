@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hospital-amazonas-pires
+  namespace: default
+  labels:
+    app: hospital-amazonas-pires
+    version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hospital-amazonas-pires
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1        # sobe 1 pod novo antes de derrubar o antigo
+      maxUnavailable: 0  # garante zero downtime durante o deploy
+  template:
+    metadata:
+      labels:
+        app: hospital-amazonas-pires
+    spec:
+      containers:
+        - name: hospital-amazonas-pires
+          image: SEU_USUARIO/hospital-amazonas-pires:latest  # trocar pelo seu usuário do Docker Hub
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+
+          # Limites de recursos — importante para o scheduler do K8s
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+
+          # Readiness: o K8s só manda tráfego quando este probe passar
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # Liveness: se falhar, o K8s reinicia o container
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+
+          # Variáveis de ambiente (exemplo)
+          env:
+            - name: APP_ENV
+              value: "production"
+
+      # Garante que os pods fiquem em nodes diferentes (alta disponibilidade)
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - hospital-amazonas-pires
+                topologyKey: kubernetes.io/hostname
