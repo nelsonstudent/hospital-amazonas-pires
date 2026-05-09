@@ -1,0 +1,24 @@
+# Controle de versão
+.git
+.gitignore
+
+# Documentação
+README.md
+*.md
+
+# CI/CD (não precisa dentro da imagem)
+.github/
+.gitlab-ci.yml
+Jenkinsfile
+
+# Kubernetes (manifestos ficam fora da imagem)
+k8s/
+
+# Ambiente local
+.env
+.env.*
+docker-compose*.yml
+
+# OS
+.DS_Store
+Thumbs.db
