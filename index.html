@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hospital Amazonas Pires — Cadastro de Pacientes</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0f1a;
+    --surface: #0f1824;
+    --surface2: #162030;
+    --border: #1e3048;
+    --border2: #2a4060;
+    --accent: #00c9a7;
+    --accent2: #0091ff;
+    --accent3: #ff6b6b;
+    --text: #e8f0f8;
+    --text2: #7a9bb5;
+    --text3: #3d5a72;
+    --mono: 'DM Mono', monospace;
+    --display: 'Syne', sans-serif;
+    --radius: 10px;
+    --danger: #ff4757;
+    --warn: #ffa502;
+    --success: #00c9a7;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--display); font-weight: 800; font-size: 18px; letter-spacing: -0.5px;
+  }
+
+  .logo-icon {
+    width: 28px; height: 28px; background: var(--accent);
+    border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  }
+
+  .logo-icon svg { width: 16px; height: 16px; }
+
+  .header-right { display: flex; align-items: center; gap: 16px; }
+
+  .badge {
+    font-size: 11px; font-family: var(--mono);
+    padding: 3px 8px; border-radius: 4px;
+    background: rgba(0,201,167,0.1); color: var(--accent); border: 1px solid rgba(0,201,167,0.25);
+    letter-spacing: 0.5px;
+  }
+
+  .header-user {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--text2);
+  }
+
+  .avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 500; color: #fff;
+  }
+
+  /* Layout */
+  .app { display: flex; flex: 1; }
+
+  /* Sidebar */
+  aside {
+    width: 220px; min-height: calc(100vh - 56px);
+    background: var(--surface); border-right: 1px solid var(--border);
+    padding: 20px 0; flex-shrink: 0;
+  }
+
+  .nav-section { margin-bottom: 24px; }
+  .nav-label { font-size: 10px; color: var(--text3); letter-spacing: 1.5px; padding: 0 20px; margin-bottom: 6px; text-transform: uppercase; }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 20px; font-size: 13px; color: var(--text2);
+    cursor: pointer; transition: all .15s; border-left: 2px solid transparent;
+    user-select: none;
+  }
+
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,201,167,0.06); }
+  .nav-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+  .nav-count {
+    margin-left: auto; font-size: 10px; background: var(--surface2);
+    border: 1px solid var(--border); padding: 1px 6px; border-radius: 10px;
+    color: var(--text3);
+  }
+
+  /* Main */
+  main { flex: 1; padding: 28px 32px; overflow-y: auto; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Page header */
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; }
+  .page-title { font-family: var(--display); font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .page-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+  /* Stats */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 18px;
+    position: relative; overflow: hidden;
+  }
+
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+
+  .stat-card.s1::before { background: var(--accent); }
+  .stat-card.s2::before { background: var(--accent2); }
+  .stat-card.s3::before { background: var(--warn); }
+  .stat-card.s4::before { background: var(--danger); }
+
+  .stat-val { font-family: var(--display); font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+  .stat-val.c1 { color: var(--accent); }
+  .stat-val.c2 { color: var(--accent2); }
+  .stat-val.c3 { color: var(--warn); }
+  .stat-val.c4 { color: var(--danger); }
+  .stat-label { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+  /* Table */
+  .table-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+  }
+
+  .search-box {
+    flex: 1; position: relative;
+  }
+
+  .search-box input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 8px 12px 8px 36px;
+    font-family: var(--mono); font-size: 13px; color: var(--text);
+    outline: none; transition: border .2s;
+  }
+
+  .search-box input:focus { border-color: var(--border2); }
+  .search-box input::placeholder { color: var(--text3); }
+
+  .search-box svg {
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; color: var(--text3); pointer-events: none;
+  }
+
+  .filter-select {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 8px 12px; font-family: var(--mono);
+    font-size: 12px; color: var(--text2); outline: none; cursor: pointer;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px; border-radius: var(--radius); font-family: var(--mono);
+    font-size: 12px; cursor: pointer; border: none; transition: all .15s;
+    font-weight: 500;
+  }
+
+  .btn-primary { background: var(--accent); color: #0a0f1a; }
+  .btn-primary:hover { background: #00b396; }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+  .btn-danger { background: rgba(255,71,87,0.15); color: var(--danger); border: 1px solid rgba(255,71,87,0.2); }
+  .btn-danger:hover { background: rgba(255,71,87,0.25); }
+  .btn svg { width: 13px; height: 13px; }
+
+  /* Table */
+  .table-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  thead th {
+    text-align: left; font-size: 10px; color: var(--text3);
+    letter-spacing: 1px; text-transform: uppercase;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    font-weight: 500; background: var(--surface2);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border); transition: background .1s;
+    cursor: pointer;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  td {
+    padding: 13px 16px; font-size: 12px; color: var(--text);
+    vertical-align: middle;
+  }
+
+  .td-id { color: var(--text3); font-size: 11px; }
+
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 4px; font-size: 11px;
+  }
+
+  .status-badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; }
+
+  .st-ativo { background: rgba(0,201,167,0.12); color: var(--success); border: 1px solid rgba(0,201,167,0.2); }
+  .st-ativo::before { background: var(--success); }
+  .st-internado { background: rgba(0,145,255,0.12); color: var(--accent2); border: 1px solid rgba(0,145,255,0.2); }
+  .st-internado::before { background: var(--accent2); }
+  .st-alta { background: rgba(122,155,181,0.12); color: var(--text2); border: 1px solid rgba(122,155,181,0.2); }
+  .st-alta::before { background: var(--text2); }
+  .st-urgencia { background: rgba(255,71,87,0.12); color: var(--danger); border: 1px solid rgba(255,71,87,0.2); }
+  .st-urgencia::before { background: var(--danger); }
+
+  .action-btns { display: flex; gap: 6px; opacity: 0; transition: opacity .15s; }
+  tr:hover .action-btns { opacity: 1; }
+
+  .icon-btn {
+    padding: 4px 7px; border-radius: 5px; border: 1px solid var(--border);
+    background: transparent; cursor: pointer; color: var(--text2);
+    font-size: 11px; font-family: var(--mono); transition: all .15s;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .icon-btn:hover { border-color: var(--border2); color: var(--text); }
+  .icon-btn.del:hover { border-color: rgba(255,71,87,0.4); color: var(--danger); background: rgba(255,71,87,0.08); }
+  .icon-btn svg { width: 12px; height: 12px; }
+
+  /* Pagination */
+  .pagination { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--border); }
+  .pag-info { font-size: 11px; color: var(--text3); }
+  .pag-btns { display: flex; gap: 4px; }
+  .pag-btn { padding: 4px 10px; border-radius: 5px; font-size: 11px; font-family: var(--mono); border: 1px solid var(--border); background: transparent; color: var(--text2); cursor: pointer; transition: all .15s; }
+  .pag-btn:hover:not(:disabled) { border-color: var(--border2); color: var(--text); }
+  .pag-btn.active { background: var(--accent); color: #0a0f1a; border-color: var(--accent); }
+  .pag-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* Modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    z-index: 200; display: none; align-items: center; justify-content: center;
+  }
+  .overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 14px; width: 580px; max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+    animation: slideUp .2s ease;
+  }
+
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+  }
+
+  .modal-title { font-family: var(--display); font-size: 16px; font-weight: 700; }
+  .modal-close { background: none; border: none; color: var(--text2); cursor: pointer; padding: 4px; border-radius: 5px; transition: color .15s; }
+  .modal-close:hover { color: var(--text); }
+  .modal-close svg { width: 18px; height: 18px; }
+
+  .modal-body { padding: 24px; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid .span2 { grid-column: span 2; }
+
+  .field label { display: block; font-size: 11px; color: var(--text2); margin-bottom: 6px; letter-spacing: 0.5px; }
+
+  .field input, .field select, .field textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 7px; padding: 9px 12px; font-family: var(--mono);
+    font-size: 13px; color: var(--text); outline: none; transition: border .2s;
+  }
+
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,201,167,0.1);
+  }
+
+  .field input.error, .field select.error { border-color: var(--danger); }
+
+  .field input::placeholder { color: var(--text3); }
+  .field textarea { resize: vertical; min-height: 72px; }
+  .field select option { background: var(--surface); }
+
+  .field-error { font-size: 11px; color: var(--danger); margin-top: 4px; }
+
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border); }
+
+  .divider { grid-column: span 2; border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+
+  /* Section label in form */
+  .form-section { grid-column: span 2; font-size: 10px; color: var(--text3); letter-spacing: 1.5px; text-transform: uppercase; margin-top: 4px; }
+
+  /* Toast */
+  .toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 500; display: flex; flex-direction: column; gap: 8px; }
+
+  .toast {
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 9px; padding: 12px 16px; font-size: 12px;
+    display: flex; align-items: center; gap: 10px; min-width: 260px;
+    animation: toastIn .25s ease;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  @keyframes toastIn { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  .toast.success .toast-icon { color: var(--success); }
+  .toast.error .toast-icon { color: var(--danger); }
+  .toast-icon svg { width: 15px; height: 15px; }
+  .toast-out { animation: toastOut .2s ease forwards; }
+  @keyframes toastOut { to { opacity: 0; transform: translateX(20px); } }
+
+  /* Empty state */
+  .empty { padding: 48px; text-align: center; }
+  .empty-icon { color: var(--text3); margin-bottom: 12px; }
+  .empty-text { font-size: 13px; color: var(--text2); }
+  .empty-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  /* Detail panel */
+  .detail-row { display: flex; border-bottom: 1px solid var(--border); padding: 12px 0; }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-key { width: 140px; font-size: 11px; color: var(--text3); flex-shrink: 0; }
+  .detail-val { font-size: 12px; color: var(--text); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* Responsive table */
+  .tag { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 4px; font-size: 10px; background: rgba(0,145,255,0.1); color: var(--accent2); border: 1px solid rgba(0,145,255,0.15); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 2v12M2 8h12" stroke="#0a0f1a" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    Hospital Amazonas Pires
+  </div>
+  <div class="header-right">
+    <span class="badge">v1.0.0</span>
+    <div class="header-user">
+      <div class="avatar">DR</div>
+      <span>Dr. Admin</span>
+    </div>
+  </div>
+</header>
+
+<div class="app">
+  <aside>
+    <div class="nav-section">
+      <div class="nav-label">Principal</div>
+      <div class="nav-item active" onclick="showPage('pacientes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        </svg>
+        Pacientes
+        <span class="nav-count" id="nav-count">0</span>
+      </div>
+      <div class="nav-item" onclick="showPage('internados')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12h6M12 9v6"/>
+        </svg>
+        Internados
+        <span class="nav-count" id="nav-count-int">0</span>
+      </div>
+      <div class="nav-item" onclick="showPage('urgencia')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        Urgência
+        <span class="nav-count" id="nav-count-urg">0</span>
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Sistema</div>
+      <div class="nav-item" onclick="showPage('sobre')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
+        </svg>
+        Sobre
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <!-- Pacientes -->
+    <div class="page active" id="page-pacientes">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Cadastro de Pacientes</div>
+          <div class="page-sub">Gerencie os registros de pacientes do hospital</div>
+        </div>
+        <button class="btn btn-primary" onclick="openModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Novo Paciente
+        </button>
+      </div>
+
+      <div class="stats">
+        <div class="stat-card s1">
+          <div class="stat-val c1" id="stat-total">0</div>
+          <div class="stat-label">Total de pacientes</div>
+        </div>
+        <div class="stat-card s2">
+          <div class="stat-val c2" id="stat-internados">0</div>
+          <div class="stat-label">Internados</div>
+        </div>
+        <div class="stat-card s3">
+          <div class="stat-val c3" id="stat-alta">0</div>
+          <div class="stat-label">Com alta</div>
+        </div>
+        <div class="stat-card s4">
+          <div class="stat-val c4" id="stat-urgencia">0</div>
+          <div class="stat-label">Urgência</div>
+        </div>
+      </div>
+
+      <div class="table-header">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input type="text" id="search-input" placeholder="Buscar por nome, CPF ou ID..." oninput="renderTable()">
+        </div>
+        <select class="filter-select" id="filter-status" onchange="renderTable()">
+          <option value="">Todos os status</option>
+          <option value="Ativo">Ativo</option>
+          <option value="Internado">Internado</option>
+          <option value="Alta">Alta</option>
+          <option value="Urgência">Urgência</option>
+        </select>
+        <select class="filter-select" id="filter-setor" onchange="renderTable()">
+          <option value="">Todos os setores</option>
+          <option value="Clínica Geral">Clínica Geral</option>
+          <option value="Cardiologia">Cardiologia</option>
+          <option value="Neurologia">Neurologia</option>
+          <option value="Ortopedia">Ortopedia</option>
+          <option value="Pediatria">Pediatria</option>
+          <option value="UTI">UTI</option>
+          <option value="Pronto-Socorro">Pronto-Socorro</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Paciente</th>
+              <th>Idade / Sexo</th>
+              <th>CPF</th>
+              <th>Setor</th>
+              <th>Status</th>
+              <th>Cadastro</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+        <div id="empty-state" class="empty" style="display:none">
+          <div class="empty-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+              <path d="M18 14l4 4M22 14l-4 4"/>
+            </svg>
+          </div>
+          <div class="empty-text">Nenhum paciente encontrado</div>
+          <div class="empty-sub">Tente ajustar os filtros ou cadastre um novo paciente</div>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+
+    <!-- Internados -->
+    <div class="page" id="page-internados">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Pacientes Internados</div>
+          <div class="page-sub">Visão consolidada dos leitos ocupados</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Paciente</th><th>Setor</th><th>Leito</th><th>Data de Internação</th><th>Médico</th></tr>
+          </thead>
+          <tbody id="internados-body"></tbody>
+        </table>
+        <div id="internados-empty" class="empty" style="display:none">
+          <div class="empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12h6M12 9v6"/></svg></div>
+          <div class="empty-text">Nenhum paciente internado</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Urgência -->
+    <div class="page" id="page-urgencia">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Urgência & Emergência</div>
+          <div class="page-sub">Atendimentos críticos em andamento</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Paciente</th><th>Idade</th><th>Queixa</th><th>Cadastro</th></tr>
+          </thead>
+          <tbody id="urgencia-body"></tbody>
+        </table>
+        <div id="urgencia-empty" class="empty" style="display:none">
+          <div class="empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+          <div class="empty-text">Nenhum atendimento de urgência</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sobre -->
+    <div class="page" id="page-sobre">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Sobre o Hospital Amazonas Pires</div>
+          <div class="page-sub">Informações do sistema</div>
+        </div>
+      </div>
+      <div class="table-wrap" style="padding: 28px;">
+        <div class="detail-row"><span class="detail-key">Sistema</span><span class="detail-val">Hospital Amazonas Pires — Cadastro de Pacientes</span></div>
+        <div class="detail-row"><span class="detail-key">Versão</span><span class="detail-val">1.0.0</span></div>
+        <div class="detail-row"><span class="detail-key">Tecnologia</span><span class="detail-val">HTML + CSS + JavaScript (Vanilla)</span></div>
+        <div class="detail-row"><span class="detail-key">API</span><span class="detail-val">REST — /api/pacientes (CRUD completo)</span></div>
+        <div class="detail-row"><span class="detail-key">Armazenamento</span><span class="detail-val">LocalStorage (demo)</span></div>
+        <div class="detail-row"><span class="detail-key">Porta padrão</span><span class="detail-val">8080</span></div>
+        <div class="detail-row"><span class="detail-key">Health check</span><span class="detail-val">/health → 200 OK</span></div>
+        <div class="detail-row"><span class="detail-key">Propósito</span><span class="detail-val">Demonstração de pipeline CI/CD → Kubernetes</span></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="modal-overlay" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Novo Paciente</div>
+      <button class="modal-close" onclick="closeModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-section">Dados pessoais</div>
+
+        <div class="field span2">
+          <label>NOME COMPLETO *</label>
+          <input type="text" id="f-nome" placeholder="Ex: Maria da Silva Santos">
+          <div class="field-error" id="e-nome"></div>
+        </div>
+
+        <div class="field">
+          <label>CPF *</label>
+          <input type="text" id="f-cpf" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)">
+          <div class="field-error" id="e-cpf"></div>
+        </div>
+
+        <div class="field">
+          <label>DATA DE NASCIMENTO *</label>
+          <input type="date" id="f-nascimento">
+          <div class="field-error" id="e-nasc"></div>
+        </div>
+
+        <div class="field">
+          <label>SEXO</label>
+          <select id="f-sexo">
+            <option value="">Selecionar</option>
+            <option value="Masculino">Masculino</option>
+            <option value="Feminino">Feminino</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>TELEFONE</label>
+          <input type="text" id="f-telefone" placeholder="(00) 00000-0000" maxlength="15" oninput="maskTel(this)">
+        </div>
+
+        <hr class="divider">
+        <div class="form-section">Dados hospitalares</div>
+
+        <div class="field">
+          <label>SETOR *</label>
+          <select id="f-setor">
+            <option value="">Selecionar</option>
+            <option>Clínica Geral</option>
+            <option>Cardiologia</option>
+            <option>Neurologia</option>
+            <option>Ortopedia</option>
+            <option>Pediatria</option>
+            <option>UTI</option>
+            <option>Pronto-Socorro</option>
+          </select>
+          <div class="field-error" id="e-setor"></div>
+        </div>
+
+        <div class="field">
+          <label>STATUS *</label>
+          <select id="f-status">
+            <option value="">Selecionar</option>
+            <option value="Ativo">Ativo</option>
+            <option value="Internado">Internado</option>
+            <option value="Alta">Alta</option>
+            <option value="Urgência">Urgência</option>
+          </select>
+          <div class="field-error" id="e-status"></div>
+        </div>
+
+        <div class="field">
+          <label>LEITO</label>
+          <input type="text" id="f-leito" placeholder="Ex: A-204">
+        </div>
+
+        <div class="field">
+          <label>MÉDICO RESPONSÁVEL</label>
+          <input type="text" id="f-medico" placeholder="Dr(a). Nome">
+        </div>
+
+        <div class="field span2">
+          <label>QUEIXA / OBSERVAÇÕES</label>
+          <textarea id="f-obs" placeholder="Descreva a queixa principal ou observações clínicas..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePatient()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg>
+        Salvar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- View modal -->
+<div class="overlay" id="view-overlay" onclick="closeViewOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Ficha do Paciente</div>
+      <button class="modal-close" onclick="closeView()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="view-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeView()">Fechar</button>
+      <button class="btn btn-primary" onclick="editFromView()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="m18.5 2.5 2 2L12 13H9v-3z"/></svg>
+        Editar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+let patients = JSON.parse(localStorage.getItem('hospital_patients') || '[]');
+let editingId = null;
+let viewingId = null;
+let currentPage = 1;
+const PER_PAGE = 8;
+
+const seed = [
+  { id: 'P0001', nome: 'Ana Carolina Ferreira', cpf: '123.456.789-00', nascimento: '1985-03-12', sexo: 'Feminino', telefone: '(11) 99887-6543', setor: 'Cardiologia', status: 'Internado', leito: 'C-101', medico: 'Dr. Roberto Lima', obs: 'Arritmia cardíaca sob observação', dataCadastro: '2025-05-01' },
+  { id: 'P0002', nome: 'João Pedro Alves', cpf: '987.654.321-00', nascimento: '1972-07-28', sexo: 'Masculino', telefone: '(21) 98765-4321', setor: 'Ortopedia', status: 'Ativo', leito: 'O-205', medico: 'Dra. Carla Mendes', obs: 'Fratura de fêmur em recuperação', dataCadastro: '2025-05-02' },
+  { id: 'P0003', nome: 'Maria Luísa Costa', cpf: '456.789.123-00', nascimento: '1995-11-05', sexo: 'Feminino', telefone: '(31) 97654-3210', setor: 'Pronto-Socorro', status: 'Urgência', leito: 'PS-03', medico: 'Dr. Felipe Santos', obs: 'Politrauma — acidente de trânsito', dataCadastro: '2025-05-06' },
+  { id: 'P0004', nome: 'Carlos Eduardo Neves', cpf: '321.654.987-00', nascimento: '1960-01-18', sexo: 'Masculino', telefone: '(41) 96543-2109', setor: 'Neurologia', status: 'Internado', leito: 'N-302', medico: 'Dra. Paula Rocha', obs: 'AVC isquêmico em tratamento', dataCadastro: '2025-05-03' },
+  { id: 'P0005', nome: 'Fernanda Oliveira', cpf: '654.321.987-11', nascimento: '1988-09-22', sexo: 'Feminino', telefone: '(51) 95432-1098', setor: 'Clínica Geral', status: 'Alta', leito: '', medico: 'Dr. André Lima', obs: 'Pneumonia tratada com sucesso', dataCadastro: '2025-04-28' },
+  { id: 'P0006', nome: 'Lucas Henrique Barros', cpf: '789.123.456-22', nascimento: '2010-06-14', sexo: 'Masculino', telefone: '(61) 94321-0987', setor: 'Pediatria', status: 'Ativo', leito: 'P-108', medico: 'Dra. Ana Farias', obs: 'Bronquite aguda — monitoramento', dataCadastro: '2025-05-05' },
+  { id: 'P0007', nome: 'Sandra Mara Pinto', cpf: '147.258.369-33', nascimento: '1950-12-30', sexo: 'Feminino', telefone: '(71) 93210-9876', setor: 'UTI', status: 'Urgência', leito: 'UTI-05', medico: 'Dr. Marcos Vieira', obs: 'Insuficiência respiratória aguda', dataCadastro: '2025-05-07' },
+  { id: 'P0008', nome: 'Roberto Firmino da Cruz', cpf: '258.369.147-44', nascimento: '1978-04-03', sexo: 'Masculino', telefone: '(81) 92109-8765', setor: 'Clínica Geral', status: 'Alta', leito: '', medico: 'Dra. Juliana Melo', obs: 'Dengue hemorrágica — recuperado', dataCadastro: '2025-04-20' },
+];
+
+if (patients.length === 0) {
+  patients = seed;
+  save();
+}
+
+function save() {
+  localStorage.setItem('hospital_patients', JSON.stringify(patients));
+  updateStats();
+  renderTable();
+  renderInternados();
+  renderUrgencia();
+}
+
+function genId() {
+  const max = patients.reduce((m, p) => Math.max(m, parseInt(p.id.slice(1))), 0);
+  return 'P' + String(max + 1).padStart(4, '0');
+}
+
+function calcAge(nasc) {
+  if (!nasc) return '—';
+  const d = new Date(nasc), n = new Date();
+  let age = n.getFullYear() - d.getFullYear();
+  if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) age--;
+  return age;
+}
+
+function fmt(dateStr) {
+  if (!dateStr) return '—';
+  const [y, m, d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function statusClass(s) {
+  return { 'Ativo': 'st-ativo', 'Internado': 'st-internado', 'Alta': 'st-alta', 'Urgência': 'st-urgencia' }[s] || 'st-alta';
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = patients.length;
+  document.getElementById('stat-internados').textContent = patients.filter(p => p.status === 'Internado').length;
+  document.getElementById('stat-alta').textContent = patients.filter(p => p.status === 'Alta').length;
+  document.getElementById('stat-urgencia').textContent = patients.filter(p => p.status === 'Urgência').length;
+  document.getElementById('nav-count').textContent = patients.length;
+  document.getElementById('nav-count-int').textContent = patients.filter(p => p.status === 'Internado').length;
+  document.getElementById('nav-count-urg').textContent = patients.filter(p => p.status === 'Urgência').length;
+}
+
+function filtered() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const st = document.getElementById('filter-status').value;
+  const se = document.getElementById('filter-setor').value;
+  return patients.filter(p => {
+    const match = !q || p.nome.toLowerCase().includes(q) || p.cpf.includes(q) || p.id.toLowerCase().includes(q);
+    const stMatch = !st || p.status === st;
+    const seMatch = !se || p.setor === se;
+    return match && stMatch && seMatch;
+  });
+}
+
+function renderTable() {
+  const data = filtered();
+  const total = data.length;
+  const pages = Math.max(1, Math.ceil(total / PER_PAGE));
+  if (currentPage > pages) currentPage = 1;
+  const slice = data.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+
+  const body = document.getElementById('table-body');
+  const empty = document.getElementById('empty-state');
+  const pag = document.getElementById('pagination');
+
+  if (slice.length === 0) {
+    body.innerHTML = '';
+    empty.style.display = '';
+    pag.innerHTML = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  body.innerHTML = slice.map(p => `
+    <tr onclick="viewPatient('${p.id}')">
+      <td class="td-id">${p.id}</td>
+      <td><strong style="font-size:13px">${p.nome}</strong></td>
+      <td>${calcAge(p.nascimento)} anos · ${p.sexo ? p.sexo[0] : '—'}</td>
+      <td>${p.cpf || '—'}</td>
+      <td><span class="tag">${p.setor}</span></td>
+      <td><span class="status-badge ${statusClass(p.status)}">${p.status}</span></td>
+      <td style="color:var(--text2)">${fmt(p.dataCadastro)}</td>
+      <td onclick="event.stopPropagation()">
+        <div class="action-btns">
+          <button class="icon-btn" onclick="openEdit('${p.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m18.5 2.5 2 2L12 13H9v-3z"/><path d="M4 20h16"/></svg>
+          </button>
+          <button class="icon-btn del" onclick="deletePatient('${p.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  // Pagination
+  let pagHtml = `<span class="pag-info">Mostrando ${(currentPage-1)*PER_PAGE+1}–${Math.min(currentPage*PER_PAGE,total)} de ${total}</span><div class="pag-btns">`;
+  pagHtml += `<button class="pag-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+  for (let i = 1; i <= pages; i++) pagHtml += `<button class="pag-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+  pagHtml += `<button class="pag-btn" onclick="goPage(${currentPage+1})" ${currentPage===pages?'disabled':''}>›</button></div>`;
+  pag.innerHTML = pagHtml;
+}
+
+function goPage(p) { currentPage = p; renderTable(); }
+
+function renderInternados() {
+  const data = patients.filter(p => p.status === 'Internado');
+  const body = document.getElementById('internados-body');
+  const empty = document.getElementById('internados-empty');
+  if (!data.length) { body.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  body.innerHTML = data.map(p => `
+    <tr>
+      <td class="td-id">${p.id}</td>
+      <td>${p.nome}</td>
+      <td><span class="tag">${p.setor}</span></td>
+      <td>${p.leito || '—'}</td>
+      <td style="color:var(--text2)">${fmt(p.dataCadastro)}</td>
+      <td style="color:var(--text2)">${p.medico || '—'}</td>
+    </tr>
+  `).join('');
+}
+
+function renderUrgencia() {
+  const data = patients.filter(p => p.status === 'Urgência');
+  const body = document.getElementById('urgencia-body');
+  const empty = document.getElementById('urgencia-empty');
+  if (!data.length) { body.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  body.innerHTML = data.map(p => `
+    <tr>
+      <td class="td-id">${p.id}</td>
+      <td>${p.nome}</td>
+      <td>${calcAge(p.nascimento)} anos</td>
+      <td style="color:var(--text2);max-width:240px">${p.obs || '—'}</td>
+      <td style="color:var(--text2)">${fmt(p.dataCadastro)}</td>
+    </tr>
+  `).join('');
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+function openModal(id) {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'Novo Paciente';
+  ['nome','cpf','nascimento','sexo','telefone','setor','status','leito','medico','obs'].forEach(f => {
+    const el = document.getElementById('f-' + f);
+    if (el) el.value = '';
+  });
+  clearErrors();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function openEdit(id) {
+  const p = patients.find(x => x.id === id);
+  if (!p) return;
+  editingId = id;
+  document.getElementById('modal-title').textContent = 'Editar Paciente — ' + id;
+  document.getElementById('f-nome').value = p.nome || '';
+  document.getElementById('f-cpf').value = p.cpf || '';
+  document.getElementById('f-nascimento').value = p.nascimento || '';
+  document.getElementById('f-sexo').value = p.sexo || '';
+  document.getElementById('f-telefone').value = p.telefone || '';
+  document.getElementById('f-setor').value = p.setor || '';
+  document.getElementById('f-status').value = p.status || '';
+  document.getElementById('f-leito').value = p.leito || '';
+  document.getElementById('f-medico').value = p.medico || '';
+  document.getElementById('f-obs').value = p.obs || '';
+  clearErrors();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function clearErrors() {
+  ['nome','cpf','nasc','setor','status'].forEach(f => {
+    const el = document.getElementById('e-' + f);
+    if (el) el.textContent = '';
+  });
+  ['f-nome','f-cpf','f-nascimento','f-setor','f-status'].forEach(f => {
+    const el = document.getElementById(f);
+    if (el) el.classList.remove('error');
+  });
+}
+
+function validate() {
+  let ok = true;
+  clearErrors();
+  const nome = document.getElementById('f-nome').value.trim();
+  const cpf = document.getElementById('f-cpf').value.trim();
+  const nasc = document.getElementById('f-nascimento').value;
+  const setor = document.getElementById('f-setor').value;
+  const status = document.getElementById('f-status').value;
+
+  if (!nome) { document.getElementById('e-nome').textContent = 'Campo obrigatório'; document.getElementById('f-nome').classList.add('error'); ok = false; }
+  if (!cpf) { document.getElementById('e-cpf').textContent = 'Campo obrigatório'; document.getElementById('f-cpf').classList.add('error'); ok = false; }
+  if (!nasc) { document.getElementById('e-nasc').textContent = 'Campo obrigatório'; document.getElementById('f-nascimento').classList.add('error'); ok = false; }
+  if (!setor) { document.getElementById('e-setor').textContent = 'Campo obrigatório'; document.getElementById('f-setor').classList.add('error'); ok = false; }
+  if (!status) { document.getElementById('e-status').textContent = 'Campo obrigatório'; document.getElementById('f-status').classList.add('error'); ok = false; }
+  return ok;
+}
+
+function savePatient() {
+  if (!validate()) return;
+  const p = {
+    id: editingId || genId(),
+    nome: document.getElementById('f-nome').value.trim(),
+    cpf: document.getElementById('f-cpf').value.trim(),
+    nascimento: document.getElementById('f-nascimento').value,
+    sexo: document.getElementById('f-sexo').value,
+    telefone: document.getElementById('f-telefone').value,
+    setor: document.getElementById('f-setor').value,
+    status: document.getElementById('f-status').value,
+    leito: document.getElementById('f-leito').value.trim(),
+    medico: document.getElementById('f-medico').value.trim(),
+    obs: document.getElementById('f-obs').value.trim(),
+    dataCadastro: editingId ? patients.find(x => x.id === editingId).dataCadastro : new Date().toISOString().split('T')[0],
+  };
+  if (editingId) {
+    patients = patients.map(x => x.id === editingId ? p : x);
+    toast('Paciente atualizado com sucesso', 'success');
+  } else {
+    patients.unshift(p);
+    toast('Paciente cadastrado: ' + p.id, 'success');
+  }
+  save();
+  closeModal();
+}
+
+function deletePatient(id) {
+  if (!confirm('Remover este paciente do sistema?')) return;
+  patients = patients.filter(p => p.id !== id);
+  save();
+  toast('Paciente removido', 'error');
+}
+
+function viewPatient(id) {
+  const p = patients.find(x => x.id === id);
+  if (!p) return;
+  viewingId = id;
+  document.getElementById('view-body').innerHTML = `
+    <div class="detail-row"><span class="detail-key">ID</span><span class="detail-val">${p.id}</span></div>
+    <div class="detail-row"><span class="detail-key">Nome</span><span class="detail-val" style="font-weight:500">${p.nome}</span></div>
+    <div class="detail-row"><span class="detail-key">CPF</span><span class="detail-val">${p.cpf || '—'}</span></div>
+    <div class="detail-row"><span class="detail-key">Nascimento</span><span class="detail-val">${fmt(p.nascimento)} (${calcAge(p.nascimento)} anos)</span></div>
+    <div class="detail-row"><span class="detail-key">Sexo</span><span class="detail-val">${p.sexo || '—'}</span></div>
+    <div class="detail-row"><span class="detail-key">Telefone</span><span class="detail-val">${p.telefone || '—'}</span></div>
+    <div class="detail-row"><span class="detail-key">Setor</span><span class="detail-val"><span class="tag">${p.setor}</span></span></div>
+    <div class="detail-row"><span class="detail-key">Status</span><span class="detail-val"><span class="status-badge ${statusClass(p.status)}">${p.status}</span></span></div>
+    <div class="detail-row"><span class="detail-key">Leito</span><span class="detail-val">${p.leito || '—'}</span></div>
+    <div class="detail-row"><span class="detail-key">Médico</span><span class="detail-val">${p.medico || '—'}</span></div>
+    <div class="detail-row"><span class="detail-key">Observações</span><span class="detail-val">${p.obs || '—'}</span></div>
+    <div class="detail-row"><span class="detail-key">Cadastro</span><span class="detail-val">${fmt(p.dataCadastro)}</span></div>
+  `;
+  document.getElementById('view-overlay').classList.add('open');
+}
+
+function editFromView() {
+  closeView();
+  setTimeout(() => openEdit(viewingId), 100);
+}
+
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function closeView() { document.getElementById('view-overlay').classList.remove('open'); }
+function closeOnOverlay(e) { if (e.target === e.currentTarget) closeModal(); }
+function closeViewOnOverlay(e) { if (e.target === e.currentTarget) closeView(); }
+
+function maskCPF(el) {
+  let v = el.value.replace(/\D/g, '');
+  v = v.replace(/(\d{3})(\d)/, '$1.$2');
+  v = v.replace(/(\d{3})(\d)/, '$1.$2');
+  v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  el.value = v;
+}
+
+function maskTel(el) {
+  let v = el.value.replace(/\D/g, '');
+  v = v.replace(/^(\d{2})(\d)/, '($1) $2');
+  v = v.replace(/(\d{5})(\d)/, '$1-$2');
+  el.value = v;
+}
+
+function toast(msg, type = 'success') {
+  const wrap = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.innerHTML = `
+    <span class="toast-icon">
+      ${type === 'success'
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>'
+      }
+    </span>
+    <span>${msg}</span>
+  `;
+  wrap.appendChild(t);
+  setTimeout(() => { t.classList.add('toast-out'); setTimeout(() => t.remove(), 200); }, 3000);
+}
+
+// Init
+updateStats();
+renderTable();
+renderInternados();
+renderUrgencia();
+</script>
+</body>
+</html>
