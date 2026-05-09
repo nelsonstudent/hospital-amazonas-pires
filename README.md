@@ -84,7 +84,7 @@ HOSPITAL/
 │   │
 │   └── observabilidade/
 │       ├── namespace.yaml            # Namespace: monitoring
-│       ├── prometheus.config.yaml    # ConfigMap com scrape configs e regras de alerta
+│       ├── prometheus-config.yaml    # ConfigMap com scrape configs e regras de alerta
 │       ├── prometheus.yaml           # Deployment + Service + RBAC do Prometheus
 │       ├── grafana.yaml              # Deployment + Service + dashboards provisionados
 │       ├── loki-promtail.yaml        # Loki (armazenamento) + Promtail (DaemonSet coletor)
