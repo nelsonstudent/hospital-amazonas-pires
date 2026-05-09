@@ -1,0 +1,155 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: hospital-amazonas-pires
+        environment: production
+
+    # Regras de alerta
+    rule_files:
+      - "/etc/prometheus/rules/*.yml"
+
+    # Alertmanager
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ["alertmanager:9093"]
+
+    scrape_configs:
+      # Métricas do próprio Prometheus
+      - job_name: prometheus
+        static_configs:
+          - targets: ["localhost:9090"]
+
+      # Métricas dos nodes do cluster (via node-exporter)
+      - job_name: node-exporter
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - source_labels: [__address__]
+            regex: "(.*):.*"
+            target_label: __address__
+            replacement: "${1}:9100"
+
+      # Métricas dos pods — descobre automaticamente via annotations
+      - job_name: kubernetes-pods
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: "([^:]+)(?::\\d+)?;(\\d+)"
+            replacement: "$1:$2"
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: app
+
+      # Métricas do nginx ingress controller
+      - job_name: nginx-ingress
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["ingress-nginx"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: ingress-nginx
+
+  # Regras de alerta para o hospital-amazonas-pires
+  hospital-amazonas-pires.rules.yml: |
+    groups:
+      - name: hospital-amazonas-pires
+        interval: 30s
+        rules:
+
+          # Pod não disponível
+          - alert: PodDown
+            expr: kube_pod_status_ready{namespace=~"dev|staging|prod", condition="true"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Pod {{ $labels.pod }} está down"
+              description: "O pod {{ $labels.pod }} no namespace {{ $labels.namespace }} não está pronto há mais de 1 minuto."
+
+          # Muitos restarts
+          - alert: PodCrashLooping
+            expr: rate(kube_pod_container_status_restarts_total{namespace=~"dev|staging|prod"}[5m]) > 0
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Pod {{ $labels.pod }} em CrashLoop"
+              description: "O pod {{ $labels.pod }} reiniciou {{ $value }} vezes nos últimos 5 minutos."
+
+          # Alta taxa de erros HTTP (via nginx ingress)
+          - alert: HighErrorRate
+            expr: |
+              rate(nginx_ingress_controller_requests{status=~"5.."}[5m])
+              /
+              rate(nginx_ingress_controller_requests[5m]) > 0.05
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Taxa de erro acima de 5%"
+              description: "A aplicação está retornando mais de 5% de erros 5xx nos últimos 5 minutos."
+
+          # Alta latência
+          - alert: HighLatency
+            expr: |
+              histogram_quantile(0.95,
+                rate(nginx_ingress_controller_request_duration_seconds_bucket[5m])
+              ) > 2
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Latência p95 acima de 2s"
+              description: "O percentil 95 de latência está em {{ $value }}s."
+
+          # CPU alta
+          - alert: HighCPU
+            expr: |
+              rate(container_cpu_usage_seconds_total{
+                namespace=~"dev|staging|prod",
+                container="hospital-amazonas-pires"
+              }[5m]) > 0.08
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "CPU alta no container hospital-amazonas-pires"
+              description: "Uso de CPU em {{ $value }} cores (limite: 0.1)."
+
+          # Memória alta
+          - alert: HighMemory
+            expr: |
+              container_memory_working_set_bytes{
+                namespace=~"dev|staging|prod",
+                container="hospital-amazonas-pires"
+              } > 100000000
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Memória acima de 100Mi"
+              description: "Uso de memória em {{ $value | humanize }}."
