@@ -1,0 +1,199 @@
+# ConfigMap com datasource do Prometheus provisionado automaticamente
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: monitoring
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus:9090
+        access: proxy
+        isDefault: true
+        editable: false
+---
+# ConfigMap com dashboard do hospital-amazonas-pires pré-carregado
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-config
+  namespace: monitoring
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: hospital-amazonas-pires
+        orgId: 1
+        folder: HospitalOS
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-hospital
+  namespace: monitoring
+data:
+  hospital-amazonas-pires.json: |
+    {
+      "title": "HospitalOS — Overview",
+      "uid": "hospital-amazonas-pires",
+      "tags": ["hospital-amazonas-pires"],
+      "timezone": "browser",
+      "refresh": "30s",
+      "panels": [
+        {
+          "title": "Pods rodando",
+          "type": "stat",
+          "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+          "targets": [{
+            "expr": "count(kube_pod_status_ready{namespace=~'dev|staging|prod', condition='true'})",
+            "legendFormat": "pods"
+          }]
+        },
+        {
+          "title": "Taxa de requisições (req/s)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+          "targets": [{
+            "expr": "sum(rate(nginx_ingress_controller_requests[5m])) by (namespace)",
+            "legendFormat": "{{ namespace }}"
+          }]
+        },
+        {
+          "title": "Taxa de erros 5xx (%)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+          "targets": [{
+            "expr": "sum(rate(nginx_ingress_controller_requests{status=~'5..'}[5m])) by (namespace) / sum(rate(nginx_ingress_controller_requests[5m])) by (namespace) * 100",
+            "legendFormat": "{{ namespace }}"
+          }]
+        },
+        {
+          "title": "Latência p50 / p95 / p99 (ms)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+          "targets": [
+            {"expr": "histogram_quantile(0.50, rate(nginx_ingress_controller_request_duration_seconds_bucket[5m])) * 1000", "legendFormat": "p50"},
+            {"expr": "histogram_quantile(0.95, rate(nginx_ingress_controller_request_duration_seconds_bucket[5m])) * 1000", "legendFormat": "p95"},
+            {"expr": "histogram_quantile(0.99, rate(nginx_ingress_controller_request_duration_seconds_bucket[5m])) * 1000", "legendFormat": "p99"}
+          ]
+        },
+        {
+          "title": "CPU usage (cores)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+          "targets": [{
+            "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=~'dev|staging|prod', container='hospital-amazonas-pires'}[5m])) by (namespace)",
+            "legendFormat": "{{ namespace }}"
+          }]
+        },
+        {
+          "title": "Memória (Mi)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+          "targets": [{
+            "expr": "sum(container_memory_working_set_bytes{namespace=~'dev|staging|prod', container='hospital-amazonas-pires'}) by (namespace) / 1024 / 1024",
+            "legendFormat": "{{ namespace }}"
+          }]
+        },
+        {
+          "title": "Restarts de pods",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+          "targets": [{
+            "expr": "sum(kube_pod_container_status_restarts_total{namespace=~'dev|staging|prod', container='hospital-amazonas-pires'}) by (pod)",
+            "legendFormat": "{{ pod }}"
+          }]
+        }
+      ]
+    }
+---
+# Deployment do Grafana
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:10.4.2
+          ports:
+            - containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: "admin"
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: "hospital-amazonas-pires-2025"   # em prod: usar Secret do K8s
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+            - name: GF_SERVER_ROOT_URL
+              value: "http://grafana.hospital-amazonas-pires.local"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboards-config
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+            - name: storage
+              mountPath: /var/lib/grafana
+      volumes:
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboards-config
+          configMap:
+            name: grafana-dashboards-config
+        - name: dashboards
+          configMap:
+            name: grafana-dashboard-hospital
+        - name: storage
+          emptyDir: {}   # em prod: substituir por PersistentVolumeClaim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: monitoring
+  labels:
+    app: grafana
+spec:
+  type: ClusterIP
+  selector:
+    app: grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
