@@ -1,4 +1,4 @@
-# RBAC — permissão para o Prometheus ler recursos do cluster
+# ── RBAC — Prometheus ─────────────────────────────────────────────── #
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -32,7 +32,36 @@ subjects:
     name: prometheus
     namespace: monitoring
 ---
-# Deployment do Prometheus
+# ── RBAC — Promtail (permissões mínimas para service discovery) ────── #
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: promtail
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: promtail
+rules:
+  - apiGroups: [""]
+    resources: [nodes, pods]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: promtail
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: promtail
+subjects:
+  - kind: ServiceAccount
+    name: promtail
+    namespace: monitoring
+---
+# ── Deployment do Prometheus ───────────────────────────────────────── #
 apiVersion: apps/v1
 kind: Deployment
 metadata:

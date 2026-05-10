@@ -161,7 +161,7 @@ spec:
       labels:
         app: promtail
     spec:
-      serviceAccountName: prometheus   # reutiliza o SA com permissão de leitura
+      serviceAccountName: promtail   # reutiliza o SA com permissão de leitura
       tolerations:
         - key: node-role.kubernetes.io/control-plane
           operator: Exists
