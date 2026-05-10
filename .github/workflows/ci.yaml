@@ -11,7 +11,7 @@ on:
       - develop
 
 env:
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/hospital-amazonas
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/hospital-amazonas-pires
 
 jobs:
   # ------------------------------------------------------------------ #
@@ -138,7 +138,7 @@ jobs:
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     environment:
       name: dev
-      url: http://dev.hospital-amazonas.local
+      url: http://dev.hospital-amazonas-pires.local
 
     steps:
       - name: Checkout do código
@@ -157,7 +157,7 @@ jobs:
       - name: Substituir imagem no manifesto
         run: |
           IMAGE_TAG=$(echo "${{ needs.push.outputs.image_tags }}" | grep "sha-" | head -1)
-          sed -i "s|SEU_USUARIO/hospital-amazonas:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
+          sed -i "s|SEU_USUARIO/hospital-amazonas-pires:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
 
       - name: Criar namespace dev (se não existir)
         run: kubectl create namespace dev --dry-run=client -o yaml | kubectl apply -f -
@@ -166,7 +166,7 @@ jobs:
         run: kubectl apply -f k8s/ -n dev
 
       - name: Aguardar rollout
-        run: kubectl rollout status deployment/hospital-amazonas -n dev --timeout=120s
+        run: kubectl rollout status deployment/hospital-amazonas-pires -n dev --timeout=120s
 
       - name: Resumo do deploy
         run: |
@@ -186,7 +186,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: staging
-      url: http://staging.hospital-amazonas.local
+      url: http://staging.hospital-amazonas-pires.local
 
     steps:
       - name: Checkout do código
@@ -205,7 +205,7 @@ jobs:
       - name: Substituir imagem no manifesto
         run: |
           IMAGE_TAG=$(echo "${{ needs.push.outputs.image_tags }}" | grep "sha-" | head -1)
-          sed -i "s|SEU_USUARIO/hospital-amazonas:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
+          sed -i "s|SEU_USUARIO/hospital-amazonas-pires:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
 
       - name: Criar namespace staging (se não existir)
         run: kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
@@ -214,7 +214,7 @@ jobs:
         run: kubectl apply -f k8s/ -n staging
 
       - name: Aguardar rollout
-        run: kubectl rollout status deployment/hospital-amazonas -n staging --timeout=120s
+        run: kubectl rollout status deployment/hospital-amazonas-pires -n staging --timeout=120s
 
       - name: Resumo do deploy
         run: |
@@ -233,7 +233,7 @@ jobs:
     needs: [push, deploy-staging]
     environment:
       name: prod                         # <- este environment tem "Required reviewers" configurado
-      url: http://hospital-amazonas.com  #    Settings > Environments > prod > Protection rules
+      url: http://hospital-amazonas-pires.com  #    Settings > Environments > prod > Protection rules
 
     steps:
       - name: Checkout do código
@@ -252,7 +252,7 @@ jobs:
       - name: Substituir imagem no manifesto
         run: |
           IMAGE_TAG=$(echo "${{ needs.push.outputs.image_tags }}" | grep "sha-" | head -1)
-          sed -i "s|SEU_USUARIO/hospital-amazonas:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
+          sed -i "s|SEU_USUARIO/hospital-amazonas-pires:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
 
       - name: Criar namespace prod (se não existir)
         run: kubectl create namespace prod --dry-run=client -o yaml | kubectl apply -f -
@@ -261,7 +261,7 @@ jobs:
         run: kubectl apply -f k8s/ -n prod
 
       - name: Aguardar rollout
-        run: kubectl rollout status deployment/hospital-amazonas -n prod --timeout=180s
+        run: kubectl rollout status deployment/hospital-amazonas-pires -n prod --timeout=180s
 
       - name: Resumo do deploy
         run: |
