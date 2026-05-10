@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.32.1-standalone-strict/poddisruptionbudget-policy-v1.json
+#
+# PodDisruptionBudget — hospital-amazonas-pires
+#
+# Garante que ao menos 1 réplica permaneça disponível durante
+# interrupções voluntárias (drain de node, upgrade de cluster,
+# eviction por pressão de recursos).
+#
+# Interrupções involuntárias (crash, OOMKill, falha de hardware)
+# não são controladas pelo PDB — para isso existem as probes
+# e o HPA definidos em deployment.yaml e hpa.yaml.
+#
+# Para verificar o estado atual do PDB:
+#   kubectl get pdb hospital-amazonas-pires -n <namespace>
+#   kubectl describe pdb hospital-amazonas-pires -n <namespace>
+#
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hospital-amazonas-pires
+  namespace: default         # substituir pelo namespace do ambiente (dev / staging / prod)
+  labels:
+    app: hospital-amazonas-pires
+spec:
+  # minAvailable: 1 garante que o cluster nunca derrube o último pod
+  # durante um drain, mesmo que o HPA tenha reduzido para minReplicas (2).
+  #
+  # Alternativa: usar maxUnavailable: 1 se preferir exprimir
+  # quantos pods podem ficar indisponíveis ao mesmo tempo.
+  # Com 2 réplicas: minAvailable: 1 e maxUnavailable: 1 são equivalentes.
+  # Com 6 réplicas (escala máxima do HPA): minAvailable: 1 permite derrubar
+  # 5 de uma vez — nesse caso, considere trocar para maxUnavailable: 1.
+  #
+  minAvailable: 1
+
+  selector:
+    matchLabels:
+      app: hospital-amazonas-pires
