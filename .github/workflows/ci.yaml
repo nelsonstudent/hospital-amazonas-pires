@@ -11,7 +11,7 @@ on:
       - develop
 
 env:
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/hospital-amazonas-pires
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/hospital-amazonas
 
 jobs:
   # ------------------------------------------------------------------ #
@@ -38,7 +38,7 @@ jobs:
             nginx:1.27-alpine nginx -t
 
   # ------------------------------------------------------------------ #
-  # JOB 2 — Build & Testes                                              #
+  # JOB 2 — Build & Testes                                             #
   # ------------------------------------------------------------------ #
   build-test:
     name: Build & Teste
@@ -84,12 +84,84 @@ jobs:
         run: docker rm -f hospital-test || true
 
   # ------------------------------------------------------------------ #
-  # JOB 3 — Push para o Docker Hub (apenas em push, não em PR)         #
+  # JOB 3 — Security Scanning com Trivy                                #
+  #                                                                    #
+  # Roda após build-test, antes do push — garante que nenhuma imagem  #
+  # com vulnerabilidade CRITICAL ou HIGH chegue ao Docker Hub.         #
+  #                                                                    #
+  # O relatório SARIF é enviado ao GitHub Security (aba "Security >   #
+  # Code scanning") e fica disponível mesmo quando o job passa.        #
+  # ------------------------------------------------------------------ #
+  security-scan:
+    name: Security Scan — Trivy
+    runs-on: ubuntu-latest
+    needs: build-test
+
+    permissions:
+      security-events: write   # necessário para upload do SARIF
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Rebuild da imagem para o scan
+        # Reconstrói usando o cache do GHA — não faz push, só carrega localmente
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:test
+          cache-from: type=gha
+
+      - name: Escanear imagem com Trivy
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:test
+          format: table           # saída legível no log do Actions
+          exit-code: '1'          # falha o job se encontrar vulnerabilidades
+          ignore-unfixed: true    # ignora CVEs sem correção disponível
+          severity: 'CRITICAL,HIGH'
+
+      - name: Gerar relatório SARIF
+        # Roda mesmo se o step anterior falhar, para sempre ter o relatório
+        if: always()
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:test
+          format: sarif
+          output: trivy-results.sarif
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      - name: Enviar relatório ao GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-image-scan
+
+      - name: Resumo do scan
+        if: always()
+        run: |
+          echo "### Security Scan — Trivy" >> $GITHUB_STEP_SUMMARY
+          echo "| Campo | Valor |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Imagem | \`${{ env.IMAGE_NAME }}:test\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Severidades verificadas | \`CRITICAL, HIGH\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| CVEs sem fix | ignorados |" >> $GITHUB_STEP_SUMMARY
+          echo "| Relatório | aba Security → Code scanning |" >> $GITHUB_STEP_SUMMARY
+
+  # ------------------------------------------------------------------ #
+  # JOB 4 — Push para o Docker Hub (apenas em push, não em PR)        #
   # ------------------------------------------------------------------ #
   push:
     name: Push → Docker Hub
     runs-on: ubuntu-latest
-    needs: build-test
+    needs: security-scan          # só publica se o scan passar
     if: github.event_name == 'push'
 
     outputs:
@@ -129,7 +201,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ------------------------------------------------------------------ #
-  # JOB 4 — Deploy DEV (automático — branch develop)                   #
+  # JOB 5 — Deploy DEV (automático — branch develop)                  #
   # ------------------------------------------------------------------ #
   deploy-dev:
     name: Deploy → DEV
@@ -138,7 +210,7 @@ jobs:
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     environment:
       name: dev
-      url: http://dev.hospital-amazonas-pires.local
+      url: http://dev.hospital-amazonas.local
 
     steps:
       - name: Checkout do código
@@ -157,7 +229,7 @@ jobs:
       - name: Substituir imagem no manifesto
         run: |
           IMAGE_TAG=$(echo "${{ needs.push.outputs.image_tags }}" | grep "sha-" | head -1)
-          sed -i "s|SEU_USUARIO/hospital-amazonas-pires:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
+          sed -i "s|SEU_USUARIO/hospital-amazonas:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
 
       - name: Criar namespace dev (se não existir)
         run: kubectl create namespace dev --dry-run=client -o yaml | kubectl apply -f -
@@ -166,7 +238,7 @@ jobs:
         run: kubectl apply -f k8s/ -n dev
 
       - name: Aguardar rollout
-        run: kubectl rollout status deployment/hospital-amazonas-pires -n dev --timeout=120s
+        run: kubectl rollout status deployment/hospital-amazonas -n dev --timeout=120s
 
       - name: Resumo do deploy
         run: |
@@ -177,7 +249,7 @@ jobs:
           echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
 
   # ------------------------------------------------------------------ #
-  # JOB 5 — Deploy STAGING (automático — branch main)                  #
+  # JOB 6 — Deploy STAGING (automático — branch main)                 #
   # ------------------------------------------------------------------ #
   deploy-staging:
     name: Deploy → Staging
@@ -186,7 +258,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: staging
-      url: http://staging.hospital-amazonas-pires.local
+      url: http://staging.hospital-amazonas.local
 
     steps:
       - name: Checkout do código
@@ -205,7 +277,7 @@ jobs:
       - name: Substituir imagem no manifesto
         run: |
           IMAGE_TAG=$(echo "${{ needs.push.outputs.image_tags }}" | grep "sha-" | head -1)
-          sed -i "s|SEU_USUARIO/hospital-amazonas-pires:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
+          sed -i "s|SEU_USUARIO/hospital-amazonas:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
 
       - name: Criar namespace staging (se não existir)
         run: kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
@@ -214,7 +286,7 @@ jobs:
         run: kubectl apply -f k8s/ -n staging
 
       - name: Aguardar rollout
-        run: kubectl rollout status deployment/hospital-amazonas-pires -n staging --timeout=120s
+        run: kubectl rollout status deployment/hospital-amazonas -n staging --timeout=120s
 
       - name: Resumo do deploy
         run: |
@@ -225,7 +297,7 @@ jobs:
           echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
 
   # ------------------------------------------------------------------ #
-  # JOB 6 — Deploy PROD (aguarda aprovação manual)                     #
+  # JOB 7 — Deploy PROD (aguarda aprovação manual)                    #
   # ------------------------------------------------------------------ #
   deploy-prod:
     name: Deploy → Prod
@@ -233,7 +305,7 @@ jobs:
     needs: [push, deploy-staging]
     environment:
       name: prod                         # <- este environment tem "Required reviewers" configurado
-      url: http://hospital-amazonas-pires.com  #    Settings > Environments > prod > Protection rules
+      url: http://hospital-amazonas.com  #    Settings > Environments > prod > Protection rules
 
     steps:
       - name: Checkout do código
@@ -252,7 +324,7 @@ jobs:
       - name: Substituir imagem no manifesto
         run: |
           IMAGE_TAG=$(echo "${{ needs.push.outputs.image_tags }}" | grep "sha-" | head -1)
-          sed -i "s|SEU_USUARIO/hospital-amazonas-pires:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
+          sed -i "s|SEU_USUARIO/hospital-amazonas:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
 
       - name: Criar namespace prod (se não existir)
         run: kubectl create namespace prod --dry-run=client -o yaml | kubectl apply -f -
@@ -261,7 +333,7 @@ jobs:
         run: kubectl apply -f k8s/ -n prod
 
       - name: Aguardar rollout
-        run: kubectl rollout status deployment/hospital-amazonas-pires -n prod --timeout=180s
+        run: kubectl rollout status deployment/hospital-amazonas -n prod --timeout=180s
 
       - name: Resumo do deploy
         run: |
