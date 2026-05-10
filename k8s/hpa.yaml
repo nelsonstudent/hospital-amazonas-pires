@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.32.1-standalone-strict/horizontalpodautoscaler-autoscaling-v2.json
+#
+# HorizontalPodAutoscaler — hospital-amazonas-pires
+#
+# Escala automaticamente entre 2 e 6 réplicas com base em CPU e memória.
+#
+# Pré-requisito: Metrics Server instalado no cluster.
+#   kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+#
+# Para acompanhar o comportamento em tempo real:
+#   kubectl get hpa hospital-amazonas-pires -n <namespace> -w
+#
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hospital-amazonas-pires
+  namespace: default         # substituir pelo namespace do ambiente (dev / staging / prod)
+  labels:
+    app: hospital-amazonas-pires
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hospital-amazonas-pires
+
+  minReplicas: 2             # mantém HA mesmo sem carga — nunca cai abaixo de 2
+  maxReplicas: 6             # teto compatível com os resource limits definidos no Deployment
+
+  metrics:
+    # ── Métrica 1: CPU ───────────────────────────────────────────────── #
+    # Escala quando a média de CPU dos pods ultrapassar 70% do request    #
+    # (request = 50m → gatilho em ~35m por pod)                          #
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+    # ── Métrica 2: Memória ───────────────────────────────────────────── #
+    # Escala quando a média de memória dos pods ultrapassar 80% do request #
+    # (request = 64Mi → gatilho em ~51Mi por pod)                         #
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+  behavior:
+    # ── Scale-up: reage rápido a picos de carga ──────────────────────── #
+    scaleUp:
+      stabilizationWindowSeconds: 30      # aguarda 30s antes de escalar para cima
+      policies:
+        - type: Pods
+          value: 2                         # adiciona no máximo 2 pods por janela
+          periodSeconds: 60
+
+    # ── Scale-down: desce devagar para evitar flapping ───────────────── #
+    scaleDown:
+      stabilizationWindowSeconds: 300     # aguarda 5 min de carga baixa antes de reduzir
+      policies:
+        - type: Pods
+          value: 1                         # remove no máximo 1 pod por janela
+          periodSeconds: 120
