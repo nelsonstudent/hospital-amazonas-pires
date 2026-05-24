@@ -1,8 +1,40 @@
-# Patch staging — faixa intermediária entre dev e prod
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.32.1-standalone-strict/horizontalpodautoscaler-autoscaling-v2.json
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: hospital-amazonas-pires
+  labels:
+    app: hospital-amazonas-pires
 spec:
-  minReplicas: 2     # base: 2 (igual)
-  maxReplicas: 4     # base: 6 (menor que prod)
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hospital-amazonas-pires
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
