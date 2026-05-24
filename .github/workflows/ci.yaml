@@ -280,6 +280,13 @@ jobs:
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG_STAGING }}" > ~/.kube/config
 
+      - name: Debug do Kubeconfig
+        run: |
+          echo "Tamanho do arquivo gerado:"
+          wc -c ~/.kube/config
+          echo "Endereço do servidor configurado:"
+          grep server ~/.kube/config || echo "Nenhum servidor encontrado! O arquivo pode estar vazio."    
+
       - name: Injetar tag da imagem no overlay staging
         run: |
           cd k8s/overlays/staging
