@@ -11,7 +11,7 @@ on:
       - develop
 
 env:
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/hospital-amazonas
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/hospital-amazonas-pires
 
 jobs:
   # ------------------------------------------------------------------ #
