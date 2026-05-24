@@ -1,0 +1,21 @@
+# Patch dev — menos recursos para economizar no ambiente de desenvolvimento
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hospital-amazonas-pires
+spec:
+  replicas: 1                  # base usa 2; dev não precisa de HA
+  template:
+    spec:
+      containers:
+        - name: hospital-amazonas-pires
+          resources:
+            requests:
+              cpu: "25m"       # base: 50m
+              memory: "32Mi"   # base: 64Mi
+            limits:
+              cpu: "50m"       # base: 100m
+              memory: "64Mi"   # base: 128Mi
+          env:
+            - name: APP_ENV
+              value: "development"
