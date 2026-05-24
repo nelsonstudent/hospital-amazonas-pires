@@ -1,7 +1,7 @@
 # Hospital Amazonas Pires — Cadastro de Pacientes
 
 <!-- substitua GITHUB_USER e DOCKERHUB_USER pelo seu usuário real antes de publicar -->
-![CI/CD](https://github.com/GITHUB_USER/hospital-amazonas-pires/actions/workflows/ci.yaml/badge.svg?branch=main)
+![CI/CD](https://github.com/nelsonstudent/hospital-amazonas-pires/actions/workflows/ci.yaml/badge.svg?branch=main)
 ![Docker Hub](https://img.shields.io/docker/pulls/DOCKERHUB_USER/hospital-amazonas?label=docker%20pulls)
 ![Kubernetes](https://img.shields.io/badge/kubernetes-1.29+-326CE5?logo=kubernetes&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
