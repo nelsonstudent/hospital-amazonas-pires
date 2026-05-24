@@ -12,7 +12,7 @@ resources:
   - network-policy.yaml
 
 # Placeholder da imagem — substituído pelo CI via:
-#   kustomize edit set image SEU_USUARIO/hospital-amazonas=SEU_USUARIO/hospital-amazonas:<sha>
+#   kustomize edit set image nelsonstudent/hospital-amazonas-pires=nelsonstudent/hospital-amazonas-pires:<sha>
 images:
-  - name: nelsonstudent/hospital-amazonas
+  - name: nelsonstudent/hospital-amazonas-pires
     newTag: latest
