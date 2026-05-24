@@ -1,0 +1,17 @@
+# Patch prod — domínio real de produção
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hospital-amazonas-pires
+spec:
+  rules:
+    - host: hospital-amazonas-pires.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hospital-amazonas-pires
+                port:
+                  number: 80
