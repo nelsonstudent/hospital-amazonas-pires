@@ -1,17 +1,15 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.32.1-standalone-strict/service-v1.json
 apiVersion: v1
 kind: Service
 metadata:
   name: hospital-amazonas-pires
-  namespace: default
   labels:
     app: hospital-amazonas-pires
 spec:
-  type: ClusterIP       # tráfego interno ao cluster — o Ingress faz a exposição externa
+  type: ClusterIP
   selector:
-    app: hospital-amazonas-pires    # aponta para os pods com este label
+    app: hospital-amazonas-pires
   ports:
     - name: http
       protocol: TCP
-      port: 80          # porta do Service dentro do cluster
-      targetPort: 8080  # porta do container
+      port: 80
+      targetPort: 8080
