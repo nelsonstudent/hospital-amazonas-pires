@@ -14,5 +14,6 @@ patches:
   - path: patches/ingress.yaml
 
 images:
-  - name: SEU_USUARIO/hospital-amazonas
+  - name: nelsonstudent/hospital-amazonas-pires
+    newName: nelsonstudent/hospital-amazonas-pires
     newTag: latest
