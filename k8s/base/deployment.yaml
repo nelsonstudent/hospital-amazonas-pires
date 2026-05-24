@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: hospital-amazonas-pires
-          image: SEU_USUARIO/hospital-amazonas    # tag injetada pelo Kustomize
+          image: nelsonstudent/hospital-amazonas-pires:latest  # tag injetada pelo Kustomize
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
