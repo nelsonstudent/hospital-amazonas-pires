@@ -11,7 +11,7 @@ on:
       - develop
 
 env:
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/hospital-amazonas-pires
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/hospital-amazonas
 
 jobs:
   # ------------------------------------------------------------------ #
@@ -111,7 +111,7 @@ jobs:
           cache-from: type=gha
 
       - name: Escanear imagem com Trivy
-        uses: aquasecurity/trivy-action@0.20.0
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ env.IMAGE_NAME }}:test
           format: table
@@ -121,7 +121,7 @@ jobs:
 
       - name: Gerar relatório SARIF
         if: always()
-        uses: aquasecurity/trivy-action@0.20.0
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ env.IMAGE_NAME }}:test
           format: sarif
