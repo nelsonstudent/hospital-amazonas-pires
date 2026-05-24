@@ -19,7 +19,7 @@ patches:
   - path: patches/ingress.yaml
 
 # Imagem substituída pelo CI:
-#   kustomize edit set image SEU_USUARIO/hospital-amazonas=SEU_USUARIO/hospital-amazonas:<sha>
+#   kustomize edit set image nelsonstudent/hospital-amazonas-pires=nelsonstudent/hospital-amazonas-pires:<sha>
 images:
-  - name: SEU_USUARIO/hospital-amazonas
+  - name: nelsonstudent/hospital-amazonas-pires
     newTag: latest
