@@ -304,8 +304,12 @@ jobs:
 
       - name: Criar namespace staging
         env:
-          KUBECONFIG: /home/nlap/.kube/config # <- Force o caminho absoluto aqui
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG_DATA }}
         run: |
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_CONTENT" > ~/.kube/config
+          export KUBECONFIG=~/.kube/config
+          # Agora o kubectl terá o arquivo de configuração e autorização
           kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f - --validate=false
 
       - name: Apply via Kustomize — Staging
