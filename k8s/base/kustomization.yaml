@@ -14,5 +14,5 @@ resources:
 # Placeholder da imagem — substituído pelo CI via:
 #   kustomize edit set image SEU_USUARIO/hospital-amazonas=SEU_USUARIO/hospital-amazonas:<sha>
 images:
-  - name: SEU_USUARIO/hospital-amazonas
+  - name: nelsonstudent/hospital-amazonas
     newTag: latest
