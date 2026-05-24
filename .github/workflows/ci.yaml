@@ -300,7 +300,7 @@ jobs:
       - name: Injetar tag da imagem no overlay staging
         run: |
           cd k8s/overlays/staging
-          kustomize edit set image ${{ env.IMAGE_NAME }}=${{ env.IMAGE_NAME }}:${{ needs.push.outputs.image_tag }}
+          kustomize edit set image nelsonstudent/hospital-amazonas-pires=nelsonstudent/hospital-amazonas-pires:${{ github.sha }}
 
       - name: Criar namespace staging
         env:
