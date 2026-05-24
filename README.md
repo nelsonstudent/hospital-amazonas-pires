@@ -1,6 +1,11 @@
 # Hospital Amazonas Pires — Cadastro de Pacientes
 
-Sistema web de cadastro de pacientes hospitalares, usado como aplicação de referência para demonstrar um pipeline completo de CI/CD com deploy no Kubernetes e observabilidade full-stack.
+![CI/CD](https://github.com/SEU_USUARIO/hospital-amazonas-pires/actions/workflows/ci.yaml/badge.svg)
+![Docker Hub](https://img.shields.io/docker/pulls/SEU_USUARIO/hospital-amazonas)
+![Kubernetes](https://img.shields.io/badge/kubernetes-1.29+-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+Sistema web de cadastro de pacientes hospitalares, usado como aplicação de referência para demonstrar um pipeline completo de CI/CD com segurança, deploy progressivo no Kubernetes via Kustomize e observabilidade full-stack.
 
 ---
 
@@ -13,8 +18,7 @@ Sistema web de cadastro de pacientes hospitalares, usado como aplicação de ref
 - [Rodando localmente](#rodando-localmente)
 - [Docker](#docker)
 - [Pipeline CI/CD](#pipeline-cicd)
-- [Kubernetes](#kubernetes)
-- [Ambientes](#ambientes)
+- [Kubernetes e Kustomize](#kubernetes-e-kustomize)
 - [Observabilidade](#observabilidade)
 - [Secrets e variáveis](#secrets-e-variáveis)
 - [Fluxo de trabalho com Git](#fluxo-de-trabalho-com-git)
@@ -25,25 +29,28 @@ Sistema web de cadastro de pacientes hospitalares, usado como aplicação de ref
 ## Visão geral
 
 ```
-Código  →  Git Push  →  CI (lint, build, test)  →  Docker Hub  →  Kubernetes
-                                                                   dev / staging / prod
-                                                                        ↓
-                                                              Prometheus · Loki · Tempo
-                                                                        ↓
-                                                                     Grafana
+Push  →  lint  →  build-test  →  security-scan  →  push (Docker Hub)
+                                                        ↓
+                                              deploy-dev (develop)
+                                              deploy-staging (main)
+                                                   └──→ [aprovação] → deploy-prod
+                                                        ↓
+                                          Prometheus · Loki · Tempo · OTel
+                                                        ↓
+                                                     Grafana
 ```
 
 O projeto tem três objetivos:
 
-1. **Aplicação funcional** — um mini sistema hospitalar com CRUD completo de pacientes, filtros, paginação e persistência via localStorage.
-2. **Referência de pipeline** — demonstra boas práticas de CI/CD: validação de Dockerfile, testes automatizados, versionamento de imagem por commit SHA, deploy progressivo por ambiente e aprovação manual para produção.
-3. **Observabilidade full-stack** — métricas com Prometheus + Grafana, logs centralizados com Loki + Promtail, rastreamento distribuído com Tempo + OpenTelemetry e alertas via Alertmanager.
+1. **Aplicação funcional** — SPA hospitalar com CRUD de pacientes, filtros, paginação e persistência via localStorage.
+2. **Referência de pipeline** — lint, build, testes automatizados, security scanning com Trivy, versionamento por SHA, deploy progressivo por ambiente e aprovação manual para produção.
+3. **Observabilidade full-stack** — métricas (Prometheus + Grafana), logs centralizados (Loki + Promtail), rastreamento distribuído (Tempo + OpenTelemetry) e alertas via Alertmanager.
 
 ---
 
 ## A aplicação
 
-**Hospital Amazonas Pires** é uma SPA (Single Page Application) construída em HTML, CSS e JavaScript puro, sem dependências de framework. É servida por um Nginx 1.27-alpine rodando na porta `8080`.
+SPA construída em HTML, CSS e JavaScript puro, sem framework. Servida por Nginx 1.27-alpine na porta `8080`.
 
 ### Funcionalidades
 
@@ -55,49 +62,74 @@ O projeto tem três objetivos:
 - Views separadas: Pacientes, Internados, Urgência
 - Dados de exemplo pré-carregados no primeiro acesso
 
-### Endpoints expostos pelo Nginx
+### Endpoints
 
 | Rota | Descrição |
 |------|-----------|
 | `GET /` | Retorna a aplicação (index.html) |
 | `GET /health` | Health check — retorna `200 OK` |
 
-O endpoint `/health` é usado tanto pelo `HEALTHCHECK` do Dockerfile quanto pelas probes `readiness` e `liveness` do Kubernetes.
+O endpoint `/health` é usado pelo `HEALTHCHECK` do Dockerfile e pelas probes `readiness` e `liveness` do Kubernetes.
 
 ---
 
 ## Estrutura do repositório
 
 ```
-HOSPITAL/
+hospital-amazonas-pires/
 │
-├── index.html                        # Aplicação completa (HTML + CSS + JS)
-├── Dockerfile                        # Imagem baseada em nginx:1.27-alpine
-├── nginx.conf                        # Configuração do servidor web (porta 8080)
-├── .dockerignore                     # Exclui arquivos desnecessários do build
-├── README.md                         # Esta documentação
+├── index.html                          # Aplicação (HTML + CSS + JS)
+├── Dockerfile                          # Imagem nginx:1.27-alpine, porta 8080
+├── nginx.conf                          # Gzip, cache, server_tokens off
+├── .dockerignore
+├── README.md
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yaml                     # Pipeline CI/CD (7 jobs)
 │
 ├── k8s/
-│   ├── deployment.yaml               # 2 réplicas, rolling update, probes
-│   ├── service.yaml                  # ClusterIP — expõe porta 80 → 8080
-│   ├── ingress.yaml                  # Entrada externa via nginx ingress controller
+│   ├── base/                           # Manifestos base — herdados pelos overlays
+│   │   ├── kustomization.yaml
+│   │   ├── deployment.yaml             # 2 réplicas, rolling update, probes
+│   │   ├── service.yaml                # ClusterIP 80 → 8080
+│   │   ├── ingress.yaml                # nginx ingress controller
+│   │   ├── hpa.yaml                    # HPA: 2–6 réplicas, CPU 70%, memória 80%
+│   │   ├── pdb.yaml                    # PodDisruptionBudget: minAvailable 1
+│   │   └── network-policy.yaml         # Zero-trust: deny-all + allow seletivo
+│   │
+│   ├── overlays/
+│   │   ├── dev/                        # 1 réplica, recursos menores, host dev.*
+│   │   │   ├── kustomization.yaml
+│   │   │   └── patches/
+│   │   │       ├── deployment.yaml
+│   │   │       ├── hpa.yaml
+│   │   │       └── ingress.yaml
+│   │   ├── staging/                    # Base intacta, host staging.*
+│   │   │   ├── kustomization.yaml
+│   │   │   └── patches/
+│   │   │       ├── hpa.yaml
+│   │   │       └── ingress.yaml
+│   │   └── prod/                       # Base intacta, domínio real
+│   │       ├── kustomization.yaml
+│   │       └── patches/
+│   │           └── ingress.yaml
 │   │
 │   └── observabilidade/
-│       ├── namespace.yaml            # Namespace: monitoring
-│       ├── prometheus-config.yaml    # ConfigMap com scrape configs e regras de alerta
-│       ├── prometheus.yaml           # Deployment + Service + RBAC do Prometheus
-│       ├── grafana.yaml              # Deployment + Service + dashboards provisionados
-│       ├── loki-promtail.yaml        # Loki (armazenamento) + Promtail (DaemonSet coletor)
-│       ├── alertmanager.yaml         # Roteamento de alertas → Slack
-│       ├── tempo-otel.yaml           # Tempo (traces) + OpenTelemetry Collector
-│       └── ingress.yaml              # Expõe Grafana externamente
+│       ├── namespace.yaml              # Namespace: monitoring
+│       ├── prometheus.yaml             # Deployment + Service + RBAC
+│       ├── prometheus-config.yaml      # Scrape configs + regras de alerta
+│       ├── grafana.yaml                # Deployment + datasources + dashboard
+│       ├── loki-promtail.yaml          # Loki + Promtail DaemonSet
+│       ├── alertmanager.yaml           # Roteamento → Slack
+│       ├── tempo-otel.yaml             # Tempo + OTel Collector
+│       └── ingress.yaml                # Expõe Grafana externamente
 │
-├── .vscode/
-│   └── settings.json                 # Schema Kubernetes para arquivos YAML
+├── docs/
+│   └── runbook.md                      # Guia de resposta a alertas
 │
-└── .github/
-    └── workflows/
-        └── ci.yml                    # Pipeline CI/CD completo (6 jobs)
+└── .vscode/
+    └── settings.json                   # Schema Kubernetes para YAML
 ```
 
 ---
@@ -108,37 +140,43 @@ HOSPITAL/
 |------------|---------------|----------|
 | Docker | 24+ | Build e execução local da imagem |
 | kubectl | 1.29+ | Aplicar manifestos no cluster |
+| Kustomize | 5+ | Gerenciar overlays por ambiente |
 | Git | qualquer | Controle de versão |
-| Conta Docker Hub | — | Registry de imagens |
 | Cluster Kubernetes | 1.28+ | Deploy da aplicação |
 | nginx ingress controller | — | Roteamento externo no cluster |
-| Extensão YAML (Red Hat) | — | Validação de YAML no VS Code |
+| Metrics Server | — | Necessário para o HPA funcionar |
+| CNI com NetworkPolicy | — | Calico, Cilium ou Weave (flannel não suporta) |
+
+### Instalar o Metrics Server
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+```
 
 ---
 
 ## Rodando localmente
 
-Sem Docker, basta abrir o arquivo direto no navegador:
+Sem Docker, basta abrir o arquivo no navegador:
 
 ```bash
-open index.html
-# ou
+open index.html       # macOS
 xdg-open index.html   # Linux
 ```
 
-Como não há backend real, a aplicação funciona 100% no browser via localStorage.
+A aplicação funciona 100% no browser via localStorage — não há backend.
 
 ---
 
 ## Docker
 
-### Build da imagem
+### Build
 
 ```bash
 docker build -t hospital-amazonas-pires:local .
 ```
 
-### Rodar o container
+### Rodar
 
 ```bash
 docker run -d \
@@ -156,83 +194,83 @@ curl http://localhost:8080/health
 # Resposta esperada: ok
 ```
 
-### Parar e remover o container
+### Parar e remover
 
 ```bash
 docker rm -f hospital-amazonas-pires
-```
-
-### Gerar tag com commit SHA (padrão do pipeline)
-
-```bash
-SHA=$(git rev-parse --short HEAD)
-docker build -t seu-usuario/hospital-amazonas-pires:sha-${SHA} .
-docker push seu-usuario/hospital-amazonas-pires:sha-${SHA}
 ```
 
 ---
 
 ## Pipeline CI/CD
 
-O pipeline é definido em `.github/workflows/ci.yml` e é disparado em:
+Definido em `.github/workflows/ci.yaml`. Disparado em push nas branches `main` e `develop`, e em pull requests contra essas branches.
 
-- **Push** nas branches `main` ou `develop`
-- **Pull Request** aberto contra `main` ou `develop`
-
-### Jobs e ordem de execução
+### Fluxo de jobs
 
 ```
-lint  →  build-test  →  push  →  deploy-dev     (branch develop)
-                              →  deploy-staging  (branch main)
-                                    └──→  [aprovação manual]
-                                              └──→  deploy-prod
+lint → build-test → security-scan → push → deploy-dev     (develop)
+                                         → deploy-staging  (main)
+                                               └──→ [aprovação] → deploy-prod
 ```
 
 | Job | Trigger | O que faz |
 |-----|---------|-----------|
-| `lint` | todos | Valida Dockerfile (Hadolint) e nginx.conf |
+| `lint` | todos | Hadolint no Dockerfile + validação do nginx.conf |
 | `build-test` | todos | Build da imagem, sobe container, testa `/` e `/health` |
-| `push` | push (não PR) | Publica imagem com tags `sha-<commit>` e `latest` ou `develop` |
-| `deploy-dev` | push em `develop` | `kubectl apply` no namespace `dev` — automático |
-| `deploy-staging` | push em `main` | `kubectl apply` no namespace `staging` — automático |
-| `deploy-prod` | após staging aprovado | `kubectl apply` no namespace `prod` — **requer aprovação manual** |
+| `security-scan` | todos | Trivy escaneia vulnerabilidades CRITICAL e HIGH; relatório SARIF enviado ao GitHub Security |
+| `push` | push (não PR) | Publica imagem com tags `sha-<commit>`, `latest` ou `develop` |
+| `deploy-dev` | push em `develop` | `kubectl apply -k k8s/overlays/dev` — automático |
+| `deploy-staging` | push em `main` | `kubectl apply -k k8s/overlays/staging` — automático |
+| `deploy-prod` | após staging | `kubectl apply -k k8s/overlays/prod` — **requer aprovação manual** |
 
 ### Versionamento de imagens
 
-Cada imagem publicada recebe duas tags:
-
 ```
-seu-usuario/hospital-amazonas-pires:sha-a3f9c12   ← identifica o commit exato
-seu-usuario/hospital-amazonas-pires:latest         ← aponta sempre para o último build da main
-seu-usuario/hospital-amazonas-pires:develop        ← aponta sempre para o último build da develop
+SEU_USUARIO/hospital-amazonas:sha-a3f9c12   ← commit exato (usado nos deploys)
+SEU_USUARIO/hospital-amazonas:latest         ← último build da main
+SEU_USUARIO/hospital-amazonas:develop        ← último build da develop
 ```
 
-A tag `sha-` é a usada nos deploys — garante rastreabilidade total entre o pod rodando no cluster e o commit que gerou a imagem.
+### Security scanning
+
+O job `security-scan` usa [Trivy](https://github.com/aquasecurity/trivy) para escanear a imagem antes do push. CVEs com severidade `CRITICAL` ou `HIGH` que possuam correção disponível bloqueiam o pipeline. O relatório completo fica disponível na aba **Security → Code scanning** do repositório.
 
 ### Configurando a aprovação manual para prod
 
 1. Acesse **Settings → Environments** no repositório
 2. Crie os ambientes: `dev`, `staging` e `prod`
 3. No ambiente `prod`, ative **Required reviewers** e adicione os aprovadores
-4. Opcionalmente configure um **Wait timer** (ex: 5 minutos) antes da janela de aprovação abrir
-
-Quando um push chega na `main`, o pipeline pausa automaticamente antes do job `deploy-prod` e envia uma notificação para os revisores. O deploy só prossegue após a aprovação explícita.
+4. Opcionalmente configure um **Wait timer** antes da janela de aprovação abrir
 
 ---
 
-## Kubernetes
+## Kubernetes e Kustomize
 
-### Aplicar a aplicação
+Os manifestos seguem a estrutura `base + overlays`. A base contém os recursos comuns; cada overlay aplica apenas o que difere por ambiente.
+
+### Diferenças por ambiente
+
+| Configuração | dev | staging | prod |
+|---|---|---|---|
+| Namespace | `dev` | `staging` | `prod` |
+| Réplicas | 1 | 2 | 2 |
+| HPA máximo | 3 | 4 | 6 |
+| CPU request/limit | 25m / 50m | 50m / 100m | 50m / 100m |
+| Memória request/limit | 32Mi / 64Mi | 64Mi / 128Mi | 64Mi / 128Mi |
+| Host | `dev.hospital-amazonas-pires.local` | `staging.hospital-amazonas-pires.local` | `hospital-amazonas-pires.com` |
+
+### Aplicar por ambiente
 
 ```bash
 # Dev
-kubectl apply -f k8s/ -n dev
+kubectl apply -k k8s/overlays/dev
 
 # Staging
-kubectl apply -f k8s/ -n staging
+kubectl apply -k k8s/overlays/staging
 
 # Prod
-kubectl apply -f k8s/ -n prod
+kubectl apply -k k8s/overlays/prod
 ```
 
 ### Verificar o status do deploy
@@ -240,81 +278,48 @@ kubectl apply -f k8s/ -n prod
 ```bash
 kubectl get pods -n prod
 kubectl rollout status deployment/hospital-amazonas-pires -n prod
+kubectl get hpa hospital-amazonas-pires -n prod -w
 ```
 
 ### Ver logs da aplicação
 
 ```bash
-kubectl logs -l app=hospital-amazonas-pires -n prod --tail=100 -f
+kubectl logs -l app=hospital-amazonas-pires -n prod --follow
 ```
 
-### Forçar rollback para a versão anterior
+### Rollback
 
 ```bash
 kubectl rollout undo deployment/hospital-amazonas-pires -n prod
 kubectl rollout status deployment/hospital-amazonas-pires -n prod
 ```
 
-### Verificar qual imagem está rodando
+### Recursos de resiliência
 
-```bash
-kubectl get deployment hospital-amazonas-pires -n prod \
-  -o jsonpath='{.spec.template.spec.containers[0].image}'
-```
-
-### Detalhes do Deployment
-
-O `deployment.yaml` está configurado com:
-
-- **2 réplicas** — alta disponibilidade
-- **RollingUpdate** com `maxUnavailable: 0` — zero downtime durante deploys
-- **readinessProbe** em `/health` — o K8s só manda tráfego quando o pod estiver pronto
-- **livenessProbe** em `/health` — reinicia automaticamente pods não responsivos
-- **podAntiAffinity** — distribui os pods em nodes físicos diferentes
-- **Limites de recursos** — `50m/64Mi` de request e `100m/128Mi` de limit
-
-> **Atenção:** Antes de aplicar no cluster, substitua `SEU_USUARIO` pela sua conta do Docker Hub no arquivo `k8s/deployment.yaml`.
-
----
-
-## Ambientes
-
-| Ambiente | Branch | Deploy | Namespace | URL |
-|----------|--------|--------|-----------|-----|
-| dev | `develop` | automático | `dev` | http://dev.hospital-amazonas-pires.local |
-| staging | `main` | automático | `staging` | http://staging.hospital-amazonas-pires.local |
-| prod | `main` | **aprovação manual** | `prod` | http://hospital-amazonas-pires.com |
-
-Cada ambiente tem seu próprio namespace Kubernetes e seu próprio kubeconfig armazenado como secret no GitHub Actions.
+| Recurso | Configuração | Efeito |
+|---------|-------------|--------|
+| HPA | CPU 70%, memória 80% | Escala automaticamente entre 2 e 6 réplicas |
+| PDB | `minAvailable: 1` | Garante ao menos 1 réplica durante manutenção de node |
+| NetworkPolicy | Zero-trust | Apenas ingress controller e namespace monitoring chegam aos pods |
+| Rolling update | `maxUnavailable: 0` | Zero downtime durante deploys |
 
 ---
 
 ## Observabilidade
 
-A stack de observabilidade roda no namespace `monitoring` e cobre as três dimensões: métricas, logs e traces.
-
-### Visão geral da stack
-
-```
-pods (dev/staging/prod)
-  │
-  ├── métricas  →  Prometheus  →  Grafana
-  ├── logs      →  Promtail    →  Loki    →  Grafana
-  ├── traces    →  OTel Collector  →  Tempo  →  Grafana
-  └── alertas   →  Alertmanager  →  Slack
-```
+Toda a stack roda no namespace `monitoring`.
 
 ### Componentes
 
 | Componente | Imagem | Porta | Responsabilidade |
 |------------|--------|-------|-----------------|
-| Prometheus | `prom/prometheus:v2.51.0` | 9090 | Coleta e armazena métricas via scrape |
-| Grafana | `grafana/grafana:10.4.2` | 3000 | Dashboards unificados de métricas, logs e traces |
-| Loki | `grafana/loki:2.9.6` | 3100 | Armazena e indexa logs por 30 dias |
+| Prometheus | `prom/prometheus:v2.51.0` | 9090 | Coleta métricas, avalia alertas, retém 15 dias |
+| Grafana | `grafana/grafana:10.4.2` | 3000 | Dashboards unificados |
+| Loki | `grafana/loki:2.9.6` | 3100 | Armazena logs, retém 30 dias |
 | Promtail | `grafana/promtail:2.9.6` | 9080 | DaemonSet que coleta logs de todos os pods |
-| Alertmanager | `prom/alertmanager:v0.27.0` | 9093 | Roteia alertas por severidade para o Slack |
-| Tempo | `grafana/tempo:2.4.1` | 3200 | Armazena traces distribuídos por 48h |
-| OTel Collector | `otel/opentelemetry-collector-contrib:0.98.0` | 4317/4318 | Recebe e roteia traces via OTLP |
+| Alertmanager | `prom/alertmanager:v0.27.0` | 9093 | Roteia alertas por severidade → Slack |
+| Tempo | `grafana/tempo:2.4.1` | 3200 | Armazena traces distribuídos, retém 48h |
+| OTel Collector | `otel/opentelemetry-collector-contrib:0.98.0` | 4317/4318 | Recebe e roteia telemetria OTLP |
 
 ### Aplicar a stack de observabilidade
 
@@ -325,28 +330,25 @@ kubectl apply -f k8s/observabilidade/
 ### Acessar o Grafana
 
 ```
-URL:   http://grafana.hospital-amazonas-pires.local
+URL:    http://grafana.hospital-amazonas-pires.local
 Usuário: admin
 Senha:   hospital-amazonas-pires-2025
 ```
 
-> **Importante:** troque a senha antes de ir para produção. Em produção, use um `Secret` do Kubernetes em vez de deixar a senha em texto no manifesto.
+> Em produção, substitua a senha por um `Secret` do Kubernetes.
 
-O Grafana já vem com datasources e dashboard do Hospital Amazonas Pires provisionados automaticamente. O dashboard exibe: pods rodando, taxa de requisições por namespace, taxa de erros 5xx, latência p50/p95/p99, uso de CPU e memória, e restarts de pods.
+O Grafana vem com datasource e dashboard provisionados automaticamente. O painel exibe: pods rodando, taxa de requisições por namespace, taxa de erros 5xx, latência p50/p95/p99, CPU, memória e restarts.
 
 ### Acessar Prometheus e Alertmanager
 
-Prometheus e Alertmanager ficam internos ao cluster por segurança. Para acessar localmente use port-forward:
+Ficam internos ao cluster por segurança. Use port-forward para acesso local:
 
 ```bash
-# Prometheus
 kubectl port-forward svc/prometheus 9090:9090 -n monitoring
-
-# Alertmanager
 kubectl port-forward svc/alertmanager 9093:9093 -n monitoring
 ```
 
-### Regras de alerta configuradas
+### Regras de alerta
 
 | Alerta | Condição | Severidade |
 |--------|----------|------------|
@@ -357,34 +359,36 @@ kubectl port-forward svc/alertmanager 9093:9093 -n monitoring
 | `HighCPU` | Uso de CPU acima de 80% do limite | warning |
 | `HighMemory` | Memória acima de 100Mi | warning |
 
-Alertas com severidade `critical` são enviados para `#hospital-amazonas-pires-critico` com menção `@channel`. Alertas `warning` vão para `#hospital-amazonas-pires-alertas`.
+Alertas `critical` vão para `#hospital-amazonas-pires-critico` com menção `@channel`. Alertas `warning` vão para `#hospital-amazonas-pires-alertas`.
+
+Para o guia de resposta a cada alerta, consulte o [runbook](docs/runbook.md).
 
 ### Configurar o Slack
 
-Substitua `SEU_WEBHOOK_AQUI` no arquivo `k8s/observabilidade/alertmanager.yaml` pelo webhook real:
+Substitua `SEU_WEBHOOK_AQUI` em `k8s/observabilidade/alertmanager.yaml` pelo webhook real:
 
 1. Acesse **api.slack.com/apps** → crie um app → **Incoming Webhooks**
 2. Ative e adicione ao workspace
-3. Copie a URL gerada e cole no manifesto
+3. Copie a URL e cole no manifesto
 
 ### Enviar traces da aplicação
 
-Para instrumentar a aplicação e enviar traces ao OTel Collector, aponte o endpoint OTLP para:
+Aponte o endpoint OTLP para o OTel Collector:
 
 ```
-grpc: otel-collector.monitoring.svc.cluster.local:4317
-http: otel-collector.monitoring.svc.cluster.local:4318
+gRPC: otel-collector.monitoring.svc.cluster.local:4317
+HTTP: otel-collector.monitoring.svc.cluster.local:4318
 ```
 
-### Observações para produção
+### Observação para produção
 
-Os volumes de Prometheus, Loki e Tempo estão configurados com `emptyDir`, o que significa que os dados são perdidos se o pod reiniciar. Em produção, substitua por `PersistentVolumeClaim`:
+Prometheus, Loki e Tempo usam `emptyDir` — os dados são perdidos se o pod reiniciar. Em produção, substitua por `PersistentVolumeClaim`:
 
 ```yaml
 volumes:
   - name: storage
     persistentVolumeClaim:
-      claimName: prometheus-pvc   # criar o PVC antes de aplicar
+      claimName: prometheus-pvc
 ```
 
 ---
@@ -396,48 +400,43 @@ Configure em **Settings → Secrets and variables → Actions**:
 | Secret | Descrição |
 |--------|-----------|
 | `DOCKERHUB_USERNAME` | Usuário do Docker Hub |
-| `DOCKERHUB_TOKEN` | Access Token gerado em hub.docker.com → Security |
-| `KUBECONFIG_DEV` | Conteúdo do kubeconfig do cluster dev, em base64 |
-| `KUBECONFIG_STAGING` | Conteúdo do kubeconfig do cluster staging, em base64 |
-| `KUBECONFIG_PROD` | Conteúdo do kubeconfig do cluster prod, em base64 |
+| `DOCKERHUB_TOKEN` | Access Token — hub.docker.com → Security |
+| `KUBECONFIG_DEV` | Kubeconfig do cluster dev em base64 |
+| `KUBECONFIG_STAGING` | Kubeconfig do cluster staging em base64 |
+| `KUBECONFIG_PROD` | Kubeconfig do cluster prod em base64 |
 
-### Como gerar o base64 do kubeconfig
+### Gerar o base64 do kubeconfig
 
 ```bash
 cat ~/.kube/config | base64 -w 0
-# Cole o resultado como valor do secret correspondente
 ```
 
 ---
 
 ## Fluxo de trabalho com Git
 
-O repositório segue o modelo de duas branches principais:
-
 ```
-main      →  staging + prod (com aprovação)
+main      →  staging + prod (com aprovação manual)
 develop   →  dev (automático)
 ```
 
-### Fluxo recomendado para uma nova feature
+### Nova feature
 
 ```bash
 # 1. Criar branch a partir de develop
-git checkout develop
-git pull origin develop
+git checkout develop && git pull origin develop
 git checkout -b feature/nome-da-feature
 
 # 2. Desenvolver e commitar
-git add .
-git commit -m "feat: descrição da mudança"
+git add . && git commit -m "feat: descrição da mudança"
 
 # 3. Abrir PR para develop
-# → pipeline roda lint + build + test (sem deploy)
-# → após aprovação e merge, deploy automático vai para dev
+# → pipeline roda lint + build + security-scan (sem deploy)
+# → merge dispara deploy automático em dev
 
 # 4. Quando dev estiver validado, abrir PR de develop → main
-# → merge dispara deploy automático para staging
-# → após validação em staging, aprovação manual libera prod
+# → merge dispara deploy em staging
+# → aprovação manual libera prod
 ```
 
 ---
@@ -451,16 +450,34 @@ docker logs hospital-amazonas-pires
 lsof -i :8080
 ```
 
-### Pod em CrashLoopBackOff no cluster
+### Pod em CrashLoopBackOff
 
 ```bash
-kubectl logs <nome-do-pod> -n <namespace> --previous
-kubectl describe pod <nome-do-pod> -n <namespace>
+kubectl logs <pod> -n <namespace> --previous
+kubectl describe pod <pod> -n <namespace>
 ```
 
-### Pipeline falha no job de lint
+### Pipeline falha no security-scan
 
-O Hadolint pode reclamar de instruções no Dockerfile. Consulte as [regras do Hadolint](https://github.com/hadolint/hadolint#rules) para entender o erro e corrigir.
+O Trivy encontrou uma vulnerabilidade `CRITICAL` ou `HIGH` com correção disponível. Consulte o relatório em **Security → Code scanning** para identificar o CVE e atualize a imagem base ou o pacote afetado.
+
+### HPA não está escalando
+
+```bash
+kubectl describe hpa hospital-amazonas-pires -n <namespace>
+kubectl top pods -n <namespace>
+```
+
+Se `kubectl top` retornar erro, o Metrics Server pode estar down — verifique em `kube-system`.
+
+### NetworkPolicy bloqueando tráfego
+
+```bash
+kubectl get networkpolicy -n <namespace>
+kubectl describe networkpolicy <nome> -n <namespace>
+```
+
+Verifique se o CNI instalado no cluster suporta NetworkPolicy (Calico, Cilium ou Weave). O flannel padrão não aplica as políticas.
 
 ### Deploy travado em `Pending`
 
@@ -469,84 +486,51 @@ kubectl get nodes
 kubectl describe deployment hospital-amazonas-pires -n <namespace>
 ```
 
-### Imagem não encontrada no cluster (`ImagePullBackOff`)
-
-Verifique se o nome da imagem em `deployment.yaml` está correto, se a imagem foi publicada no registry e se o cluster tem acesso à internet.
+### Imagem não encontrada (`ImagePullBackOff`)
 
 ```bash
-kubectl describe pod <nome-do-pod> -n <namespace>
+kubectl describe pod <pod> -n <namespace>
 # Procure por "Events" no final da saída
 ```
 
 ### Grafana não carrega dados
 
 ```bash
-# Verificar se o Prometheus está rodando
 kubectl get pods -n monitoring
-
-# Verificar se o Prometheus consegue fazer scrape
 kubectl port-forward svc/prometheus 9090:9090 -n monitoring
-# Acesse http://localhost:9090/targets e verifique o status
+# Acesse http://localhost:9090/targets e verifique o status dos scrape jobs
 ```
 
-### Logs não aparecem no Grafana/Loki
+### Logs não aparecem no Loki
 
 ```bash
-# Verificar se o Promtail está rodando em todos os nodes
 kubectl get pods -n monitoring -l app=promtail
-
-# Ver logs do Promtail para diagnosticar erros de coleta
 kubectl logs -l app=promtail -n monitoring --tail=50
 ```
 
 ### Alertas não chegam no Slack
 
 ```bash
-# Verificar se o Alertmanager está rodando
 kubectl get pods -n monitoring -l app=alertmanager
-
-# Acessar a UI do Alertmanager para ver alertas ativos
 kubectl port-forward svc/alertmanager 9093:9093 -n monitoring
-# Acesse http://localhost:9093
+# Acesse http://localhost:9093 e verifique os alertas ativos
 ```
 
-### Arquivos YAML com erros de schema no VS Code
+### Arquivos YAML com erro de schema no VS Code
 
-Verifique se o `.vscode/settings.json` contém:
+Confirme que a extensão **YAML** da Red Hat (`redhat.vscode-yaml`) está instalada e que o `.vscode/settings.json` está presente. Use `Ctrl+Shift+P` → **Developer: Reload Window** após salvar.
 
-```json
-{
-  "yaml.schemas": {
-    "kubernetes": ["k8s/**/*.yaml"]
-  },
-  "yaml.schemaStore.enable": false,
-  "[yaml]": {
-    "editor.defaultFormatter": "redhat.vscode-yaml"
-  },
-  "files.associations": {
-    "k8s/**/*.yaml": "yaml"
-  }
-}
-```
-
-E confirme que a extensão **YAML** da Red Hat (`redhat.vscode-yaml`) está instalada. Use `Ctrl+Shift+P` → **Developer: Reload Window** após salvar o arquivo.
-
-### Erro "Matches multiple schemas when only one must validate"
-
-O mapeamento `"kubernetes"` em `yaml.schemas` usa um schema combinado (`all.json`) que valida todos os tipos K8s em modo `oneOf` estrito — em alguns manifestos isso gera ambiguidade e o validador acusa o erro acima. A solução é apontar o arquivo para o schema específico do recurso usando uma diretiva inline na primeira linha:
+Para recursos que geram ambiguidade no schema global, adicione a diretiva inline na primeira linha do arquivo:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.32.1-standalone-strict/service-v1.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.32.1-standalone-strict/deployment-apps-v1.json
 ```
-
-Troque `service-v1.json` pelo schema correspondente ao recurso:
 
 | Recurso | Schema |
 |---------|--------|
 | Deployment | `deployment-apps-v1.json` |
 | Service | `service-v1.json` |
 | Ingress | `ingress-networking-v1.json` |
+| HPA | `horizontalpodautoscaler-autoscaling-v2.json` |
 | ConfigMap | `configmap-v1.json` |
-| Namespace | `namespace-v1.json` |
-
-A diretiva inline tem prioridade sobre o mapeamento global do `settings.json` e remove a ambiguidade do `oneOf`.
+| NetworkPolicy | `networkpolicy-networking-v1.json` |
