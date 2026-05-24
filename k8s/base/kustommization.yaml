@@ -1,19 +1,18 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-bases:
-  - ../../base
+# Todos os manifestos que compõem a aplicação.
+# Os overlays herdam estes recursos e aplicam patches em cima.
+resources:
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - network-policy.yaml
 
-namespace: prod
-
-commonLabels:
-  environment: prod
-
-# Prod usa a base sem patches de recursos — já está dimensionada para produção.
-# Apenas o host do ingress é sobrescrito.
-patches:
-  - path: patches/ingress.yaml
-
+# Placeholder da imagem — substituído pelo CI via:
+#   kustomize edit set image SEU_USUARIO/hospital-amazonas=SEU_USUARIO/hospital-amazonas:<sha>
 images:
-  - name: SEU_USUARIO/hospital-amazonas-pires
+  - name: SEU_USUARIO/hospital-amazonas
     newTag: latest
