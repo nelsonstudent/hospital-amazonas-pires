@@ -1,0 +1,8 @@
+# Patch staging — faixa intermediária entre dev e prod
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hospital-amazonas-pires
+spec:
+  minReplicas: 2     # base: 2 (igual)
+  maxReplicas: 4     # base: 6 (menor que prod)
