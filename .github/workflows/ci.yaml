@@ -302,8 +302,11 @@ jobs:
           cd k8s/overlays/staging
           kustomize edit set image ${{ env.IMAGE_NAME }}=${{ env.IMAGE_NAME }}:${{ needs.push.outputs.image_tag }}
 
-      - name: Criar namespace staging (se não existir)
-        run: kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f - --validate=false
+      - name: Criar namespace staging
+        env:
+          KUBECONFIG: /home/nlap/.kube/config # <- Force o caminho absoluto aqui
+        run: |
+          kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f - --validate=false
 
       - name: Apply via Kustomize — Staging
         run: kubectl apply -k k8s/overlays/staging
