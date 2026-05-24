@@ -210,7 +210,7 @@ jobs:
   # ------------------------------------------------------------------ #
   deploy-dev:
     name: Deploy → DEV
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: push
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     environment:
@@ -259,7 +259,7 @@ jobs:
   # ------------------------------------------------------------------ #
   deploy-staging:
     name: Deploy → Staging
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: push
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
@@ -308,7 +308,7 @@ jobs:
   # ------------------------------------------------------------------ #
   deploy-prod:
     name: Deploy → Prod
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [push, deploy-staging]
     environment:
       name: prod
