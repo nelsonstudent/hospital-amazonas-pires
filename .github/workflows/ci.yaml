@@ -11,7 +11,7 @@ on:
       - develop
 
 env:
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/hospital-amazonas-pires
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/hospital-amazonas
 
 jobs:
   # ------------------------------------------------------------------ #
@@ -85,12 +85,6 @@ jobs:
 
   # ------------------------------------------------------------------ #
   # JOB 3 — Security Scanning com Trivy                                #
-  #                                                                    #
-  # Roda após build-test, antes do push — garante que nenhuma imagem  #
-  # com vulnerabilidade CRITICAL ou HIGH chegue ao Docker Hub.         #
-  #                                                                    #
-  # O relatório SARIF é enviado ao GitHub Security (aba "Security >   #
-  # Code scanning") e fica disponível mesmo quando o job passa.        #
   # ------------------------------------------------------------------ #
   security-scan:
     name: Security Scan — Trivy
@@ -98,7 +92,7 @@ jobs:
     needs: build-test
 
     permissions:
-      security-events: write   # necessário para upload do SARIF
+      security-events: write
 
     steps:
       - name: Checkout do código
@@ -108,7 +102,6 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Rebuild da imagem para o scan
-        # Reconstrói usando o cache do GHA — não faz push, só carrega localmente
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -121,13 +114,12 @@ jobs:
         uses: aquasecurity/trivy-action@0.20.0
         with:
           image-ref: ${{ env.IMAGE_NAME }}:test
-          format: table           # saída legível no log do Actions
-          exit-code: '1'          # falha o job se encontrar vulnerabilidades
-          ignore-unfixed: true    # ignora CVEs sem correção disponível
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
 
       - name: Gerar relatório SARIF
-        # Roda mesmo se o step anterior falhar, para sempre ter o relatório
         if: always()
         uses: aquasecurity/trivy-action@0.20.0
         with:
@@ -161,11 +153,11 @@ jobs:
   push:
     name: Push → Docker Hub
     runs-on: ubuntu-latest
-    needs: security-scan          # só publica se o scan passar
+    needs: security-scan
     if: github.event_name == 'push'
 
     outputs:
-      image_tags: ${{ steps.meta.outputs.tags }}
+      image_tag: ${{ steps.sha_tag.outputs.tag }}
 
     steps:
       - name: Checkout do código
@@ -189,6 +181,12 @@ jobs:
             type=sha,prefix=sha-,format=short
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
+
+      - name: Extrair tag sha para os deploys
+        id: sha_tag
+        run: |
+          TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep "sha-" | head -1 | cut -d: -f2)
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
       - name: Build e push
         uses: docker/build-push-action@v5
@@ -226,16 +224,16 @@ jobs:
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG_DEV }}" | base64 -d > ~/.kube/config
 
-      - name: Substituir imagem no manifesto
+      - name: Injetar tag da imagem no overlay dev
         run: |
-          IMAGE_TAG=$(echo "${{ needs.push.outputs.image_tags }}" | grep "sha-" | head -1)
-          sed -i "s|SEU_USUARIO/hospital-amazonas-pires:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
+          cd k8s/overlays/dev
+          kustomize edit set image ${{ env.IMAGE_NAME }}=${{ env.IMAGE_NAME }}:${{ needs.push.outputs.image_tag }}
 
       - name: Criar namespace dev (se não existir)
         run: kubectl create namespace dev --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Apply dos manifestos — DEV
-        run: kubectl apply -f k8s/ -n dev
+      - name: Apply via Kustomize — DEV
+        run: kubectl apply -k k8s/overlays/dev
 
       - name: Aguardar rollout
         run: kubectl rollout status deployment/hospital-amazonas-pires -n dev --timeout=120s
@@ -246,6 +244,7 @@ jobs:
           echo "| Campo | Valor |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Ambiente | \`dev\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Imagem | \`${{ env.IMAGE_NAME }}:${{ needs.push.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
 
   # ------------------------------------------------------------------ #
@@ -274,16 +273,16 @@ jobs:
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > ~/.kube/config
 
-      - name: Substituir imagem no manifesto
+      - name: Injetar tag da imagem no overlay staging
         run: |
-          IMAGE_TAG=$(echo "${{ needs.push.outputs.image_tags }}" | grep "sha-" | head -1)
-          sed -i "s|SEU_USUARIO/hospital-amazonas-pires:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
+          cd k8s/overlays/staging
+          kustomize edit set image ${{ env.IMAGE_NAME }}=${{ env.IMAGE_NAME }}:${{ needs.push.outputs.image_tag }}
 
       - name: Criar namespace staging (se não existir)
         run: kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Apply dos manifestos — Staging
-        run: kubectl apply -f k8s/ -n staging
+      - name: Apply via Kustomize — Staging
+        run: kubectl apply -k k8s/overlays/staging
 
       - name: Aguardar rollout
         run: kubectl rollout status deployment/hospital-amazonas-pires -n staging --timeout=120s
@@ -294,6 +293,7 @@ jobs:
           echo "| Campo | Valor |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Ambiente | \`staging\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Imagem | \`${{ env.IMAGE_NAME }}:${{ needs.push.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
 
   # ------------------------------------------------------------------ #
@@ -304,8 +304,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [push, deploy-staging]
     environment:
-      name: prod                         # <- este environment tem "Required reviewers" configurado
-      url: http://hospital-amazonas-pires-pires.com  #    Settings > Environments > prod > Protection rules
+      name: prod
+      url: http://hospital-amazonas-pires.com
 
     steps:
       - name: Checkout do código
@@ -321,16 +321,16 @@ jobs:
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > ~/.kube/config
 
-      - name: Substituir imagem no manifesto
+      - name: Injetar tag da imagem no overlay prod
         run: |
-          IMAGE_TAG=$(echo "${{ needs.push.outputs.image_tags }}" | grep "sha-" | head -1)
-          sed -i "s|SEU_USUARIO/hospital-amazonas-pires:latest|${IMAGE_TAG}|g" k8s/deployment.yaml
+          cd k8s/overlays/prod
+          kustomize edit set image ${{ env.IMAGE_NAME }}=${{ env.IMAGE_NAME }}:${{ needs.push.outputs.image_tag }}
 
       - name: Criar namespace prod (se não existir)
         run: kubectl create namespace prod --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Apply dos manifestos — Prod
-        run: kubectl apply -f k8s/ -n prod
+      - name: Apply via Kustomize — Prod
+        run: kubectl apply -k k8s/overlays/prod
 
       - name: Aguardar rollout
         run: kubectl rollout status deployment/hospital-amazonas-pires -n prod --timeout=180s
@@ -341,5 +341,6 @@ jobs:
           echo "| Campo | Valor |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Ambiente | \`prod\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Imagem | \`${{ env.IMAGE_NAME }}:${{ needs.push.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Aprovado por | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
