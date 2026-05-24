@@ -316,7 +316,7 @@ jobs:
         run: kubectl apply -k k8s/overlays/staging
 
       - name: Aguardar rollout
-        run: kubectl rollout status deployment/hospital-amazonas-pires -n staging --timeout=120s
+        run: kubectl rollout status deployment/hospital-amazonas-pires -n staging --timeout=300s
 
       - name: Resumo do deploy
         run: |
