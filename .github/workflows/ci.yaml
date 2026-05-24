@@ -270,10 +270,15 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v5
 
-      - name: Configurar Kustomize (Oficial)
-        uses: kubernetes-sigs/kustomize-action@v2
-        with:
-          kustomize-version: "v5.3.0"
+      - name: Instalar Kustomize nativamente
+        run: |
+          if ! command -v kustomize &> /dev/null; then
+            echo "Kustomize não encontrado. Instalando..."
+            curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+            sudo mv kustomize /usr/local/bin/
+          else
+            echo "Kustomize já está instalado!"
+          fi
 
       - name: Configurar kubectl
         uses: azure/setup-kubectl@v4
