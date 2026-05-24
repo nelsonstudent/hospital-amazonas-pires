@@ -15,5 +15,4 @@ patches:
 
 images:
   - name: nelsonstudent/hospital-amazonas-pires
-    newName: nelsonstudent/hospital-amazonas-pires
     newTag: latest
