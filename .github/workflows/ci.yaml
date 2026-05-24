@@ -111,24 +111,30 @@ jobs:
           tags: ${{ env.IMAGE_NAME }}:test
           cache-from: type=gha
 
+      - name: Instalar Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin
+          trivy --version
+
       - name: Escanear imagem com Trivy
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: ${{ env.IMAGE_NAME }}:test
-          format: table
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
+        run: |
+          trivy image \
+            --format table \
+            --exit-code 1 \
+            --ignore-unfixed \
+            --severity CRITICAL,HIGH \
+            ${{ env.IMAGE_NAME }}:test
 
       - name: Gerar relatório SARIF
         if: always()
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: ${{ env.IMAGE_NAME }}:test
-          format: sarif
-          output: trivy-results.sarif
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
+        run: |
+          trivy image \
+            --format sarif \
+            --output trivy-results.sarif \
+            --ignore-unfixed \
+            --severity CRITICAL,HIGH \
+            ${{ env.IMAGE_NAME }}:test
 
       - name: Enviar relatório ao GitHub Security
         if: always()
