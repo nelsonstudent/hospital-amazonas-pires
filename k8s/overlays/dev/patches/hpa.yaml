@@ -1,0 +1,8 @@
+# Patch dev — HPA com teto menor, não há necessidade de escalar muito em dev
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hospital-amazonas-pires
+spec:
+  minReplicas: 1     # base: 2
+  maxReplicas: 3     # base: 6
