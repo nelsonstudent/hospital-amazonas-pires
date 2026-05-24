@@ -1,0 +1,11 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hospital-amazonas-pires
+  labels:
+    app: hospital-amazonas-pires
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: hospital-amazonas-pires
